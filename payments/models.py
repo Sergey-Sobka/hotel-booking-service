@@ -8,7 +8,7 @@ from bookings.models import Booking
 
 class Payment(models.Model):
 
-    
+
     class StatusChoices(models.TextChoices):
         PENDING = 'PENDING', 'Pending'
         PAID = 'PAID', 'Paid'
@@ -23,45 +23,45 @@ class Payment(models.Model):
 
     booking = models.ForeignKey(
     Booking,
-        on_delete=models.CASCADE, 
+        on_delete=models.CASCADE,
         related_name='payments',
         verbose_name="Бронювання"
     )
-    
+
 
     status = models.CharField(
-        max_length=10, 
-        choices=StatusChoices.choices, 
+        max_length=10,
+        choices=StatusChoices.choices,
         default=StatusChoices.PENDING,
         verbose_name="Статус платежу"
     )
-    
+
 
     type = models.CharField(
-        max_length=15, 
+        max_length=15,
         choices=TypeChoices.choices,
         verbose_name="Тип платежу"
     )
-    
+
 
     amount = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
+        max_digits=10,
+        decimal_places=2,
         verbose_name="Сума до оплати"
     )
-    
+
 
     session_url = models.URLField(
-        max_length=512, 
-        blank=True, 
-        null=True, 
+        max_length=512,
+        blank=True,
+        null=True,
         verbose_name="Посилання на оплату Stripe"
     )
-    
+
 
     session_id = models.CharField(
-        max_length=255, 
-        unique=True, 
+        max_length=255,
+        unique=True,
         verbose_name="Stripe Session ID"
     )
 
