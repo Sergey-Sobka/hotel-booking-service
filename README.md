@@ -1,11 +1,11 @@
 # Hotel Booking Service
 
-Team-ready Django foundation for the assignment described in the
+Empty Django project for the team assignment described in the
 [project documentation](https://docs.google.com/document/d/1dug9m85_Ck0J3Lno9P_2m0y4aAGLmnQy/edit).
 
-The repository contains empty Django applications, Docker infrastructure, and
-CI checks. Models, migrations, business logic, API endpoints, background jobs,
-Stripe, and Telegram integrations remain separate feature tasks.
+The initial project intentionally contains no applications, models, business
+logic, API endpoints, Docker configuration, or integrations. Each feature must
+be implemented in a separate branch and pull request.
 
 - [Trello board](https://trello.com/b/1C5FZifF/hotel-booking-service)
 - [Sprint plan](docs/SPRINT_PLAN.md)
@@ -31,45 +31,6 @@ python manage.py runserver
 ```
 
 Open `http://127.0.0.1:8000/`.
-
-## Docker setup
-
-Start Django, PostgreSQL, and Redis together:
-
-```bash
-cp .env.sample .env
-docker compose up --build
-```
-
-The `web` service waits for healthy dependencies, applies migrations, and
-starts Django at `http://127.0.0.1:8000/`.
-
-```bash
-docker compose down
-docker compose down -v  # also removes local database and Redis data
-```
-
-## Project structure
-
-- `config` - Django configuration.
-- `users` - user service application scaffold.
-- `rooms` - room service application scaffold.
-- `bookings` - booking service application scaffold.
-- `payments` - payment service application scaffold.
-
-Models, migrations, serializers, views, permissions, filters, lifecycle
-actions, and integrations belong in their corresponding Trello cards.
-
-## Quality checks
-
-```bash
-python manage.py makemigrations --check --dry-run
-python manage.py test
-```
-
-GitHub Actions installs Flake8 separately and runs linting, Django configuration,
-migration, and test checks for pushes and pull requests targeting `main` or
-`develop`.
 
 ## Joining the repository
 
