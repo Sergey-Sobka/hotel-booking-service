@@ -41,6 +41,8 @@ Use the red `Blocked` label only when a dependency prevents work.
 
 Each developer receives four cards and approximately 15 focused working hours.
 Real names and Trello members can replace the placeholders during planning.
+The project lead's initialization card is tracked separately and does not
+change the equal feature allocation below.
 
 | Developer | Cards | Time |
 | --- | ---: | ---: |
@@ -55,6 +57,7 @@ Real names and Trello members can replace the placeholders during planning.
 
 | ID | Task | Owner | Time | Day | Domain | Depends on |
 | --- | --- | --- | ---: | --- | --- | --- |
+| HBS-00 | Project initialization and repository setup | Serhii Sobka | 6 h | Day 1 | Infrastructure | None |
 | HBS-01 | Create rooms app and Room model | Developer 1 | 3 h | Day 1 | Rooms | None |
 | HBS-02 | Implement Rooms CRUD endpoints | Developer 1 | 5 h | Day 1 | Rooms | HBS-01 |
 | HBS-03 | Add room permissions and filters | Developer 1 | 3 h | Day 2 | Rooms | HBS-02 |

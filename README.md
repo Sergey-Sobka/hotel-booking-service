@@ -18,7 +18,7 @@ be implemented in a separate branch and pull request.
 ## Setup
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Sergey-Sobka/hotel-booking-service.git
 cd hotel-booking-service
 
 python3 -m venv .venv
@@ -30,6 +30,20 @@ python manage.py runserver
 ```
 
 Open `http://127.0.0.1:8000/`.
+
+## Joining the repository
+
+The repository is private. The owner must invite each developer in
+`Settings -> Collaborators -> Add people` using their GitHub username.
+
+After accepting the invitation, each developer runs:
+
+```bash
+git clone https://github.com/Sergey-Sobka/hotel-booking-service.git
+cd hotel-booking-service
+git switch develop
+git pull origin develop
+```
 
 ## Team workflow
 
