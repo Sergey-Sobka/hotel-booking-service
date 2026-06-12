@@ -33,8 +33,9 @@ Open `http://127.0.0.1:8000/`.
 
 ## Joining the repository
 
-The repository is private. The owner must invite each developer in
-`Settings -> Collaborators -> Add people` using their GitHub username.
+The repository is public, so anyone can view and clone it. The owner must still
+invite each developer in `Settings -> Collaborators -> Add people` using their
+GitHub username so they can push branches.
 
 After accepting the invitation, each developer runs:
 
