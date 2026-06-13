@@ -3,7 +3,8 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from users.views import UserRegisterView, UserProfileView
+
+from users.views import UserProfileView, UserRegisterView
 
 app_name = "users"
 
