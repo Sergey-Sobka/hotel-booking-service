@@ -1,7 +1,5 @@
 """Room models will be implemented in their feature task."""
 
-from inspect import Signature
-
 from django.db import models
 from django.core.validators import MinValueValidator
 
