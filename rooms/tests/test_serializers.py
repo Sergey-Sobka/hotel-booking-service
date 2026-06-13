@@ -1,5 +1,7 @@
-from django.test import TestCase
 from decimal import Decimal
+
+from django.test import TestCase
+
 from rooms.models import Room
 from rooms.serializers import RoomSerializer
 
