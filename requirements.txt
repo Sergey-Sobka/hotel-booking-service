@@ -3,3 +3,4 @@ psycopg[binary]==3.2.9
 redis==6.2.0
 
 djangorestframework
+djangorestframework-simplejwt
