@@ -4,7 +4,6 @@ from rooms.models import Room
 
 
 class TestRoomModel(TestCase):
-
     def test_create_room_and_str_method(self):
         room = Room.objects.create(
             number="101A",
