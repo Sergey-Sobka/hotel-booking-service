@@ -67,8 +67,9 @@ python manage.py makemigrations --check --dry-run
 python manage.py test
 ```
 
-GitHub Actions installs Ruff separately and runs linting, formatting, migration
-checks, and tests for pushes and pull requests targeting `main` or `develop`.
+GitHub Actions installs Flake8 separately and runs linting, Django configuration,
+migration, and test checks for pushes and pull requests targeting `main` or
+`develop`.
 
 ## Joining the repository
 
