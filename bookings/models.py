@@ -1,6 +1,6 @@
 from django.db import models
 from django.conf import settings
-
+from django.core.validators import MinValueValidator
 
 class BookingStatus(models.TextChoices):
     BOOKED = "BOOKED", "Booked"
@@ -29,7 +29,11 @@ class Booking(models.Model):
         choices=BookingStatus.choices,
         default=BookingStatus.BOOKED,
     )
-    price_per_night = models.DecimalField(max_digits=10, decimal_places=2)
+    price_per_night = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+    )
 
     class Meta:
         ordering = ["-check_in_date"]
