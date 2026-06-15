@@ -2,7 +2,9 @@ from datetime import date
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-
+from rest_framework.test import APITestCase
+from rest_framework import status
+from django.urls import reverse
 
 from rooms.models import Room
 from .models import Booking, BookingStatus
@@ -66,3 +68,74 @@ class BookingModelTest(TestCase):
     def test_valid_dates_pass(self):
         booking = Booking(**self.booking_data)
         booking.full_clean()
+
+
+class BookingListViewTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email="a@a.com", password="pass")
+        self.other_user = User.objects.create_user(email="b@b.com", password="pass")
+        self.room = Room.objects.create(
+            number="101", room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00", capacity=2,
+        )
+        self.booking = Booking.objects.create(
+            user=self.user, room=self.room,
+            check_in_date=date(2025, 8, 1),
+            check_out_date=date(2025, 8, 5),
+            price_per_night="100.00",
+        )
+        Booking.objects.create(
+            user=self.other_user, room=self.room,
+            check_in_date=date(2025, 9, 1),
+            check_out_date=date(2025, 9, 5),
+            price_per_night="100.00",
+        )
+        self.url = reverse("bookings:booking-list")
+
+    def test_unauthenticated_returns_401(self):
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_user_sees_only_own_bookings(self):
+        self.client.force_authenticate(user=self.user)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 1)
+        self.assertEqual(res.data[0]["id"], self.booking.id)
+
+    def test_filter_by_status(self):
+        self.client.force_authenticate(user=self.user)
+        res = self.client.get(self.url, {"status": "BOOKED"})
+        self.assertEqual(len(res.data), 1)
+
+    def test_filter_by_room(self):
+        self.client.force_authenticate(user=self.user)
+        res = self.client.get(self.url, {"room": self.room.id})
+        self.assertEqual(len(res.data), 1)
+
+
+class BookingDetailViewTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email="a@a.com", password="pass")
+        self.other_user = User.objects.create_user(email="b@b.com", password="pass")
+        self.room = Room.objects.create(
+            number="101", room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00", capacity=2,
+        )
+        self.booking = Booking.objects.create(
+            user=self.user, room=self.room,
+            check_in_date=date(2025, 8, 1),
+            check_out_date=date(2025, 8, 5),
+            price_per_night="100.00",
+        )
+        self.url = reverse("bookings:booking-detail", kwargs={"pk": self.booking.pk})
+
+    def test_owner_can_retrieve(self):
+        self.client.force_authenticate(user=self.user)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_other_user_gets_404(self):
+        self.client.force_authenticate(user=self.other_user)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
