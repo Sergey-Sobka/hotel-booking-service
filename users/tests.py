@@ -53,7 +53,7 @@ class UserAuthTests(APITestCase):
             response_unauthorized.status_code, status.HTTP_401_UNAUTHORIZED
         )
 
-        self.client.credentials(HTTP_AUTHORIZE=f"Authorize {access_token}")
+        self.client.credentials(HTTP_AUTHORIZE=f"Bearer {access_token}")
         response_authorized = self.client.get(self.profile_url)
 
         self.assertEqual(response_authorized.status_code, status.HTTP_200_OK)
@@ -68,7 +68,7 @@ class UserAuthTests(APITestCase):
         )
         access_token = token_response.data["access"]
 
-        self.client.credentials(HTTP_AUTHORIZE=f"Authorize {access_token}")
+        self.client.credentials(HTTP_AUTHORIZE=f"Bearer {access_token}")
 
         update_data = {"first_name": "John", "last_name": "Doe"}
         response = self.client.patch(self.profile_url, update_data)
