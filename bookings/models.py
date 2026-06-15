@@ -35,4 +35,5 @@ class Booking(models.Model):
         ordering = ["-check_in_date"]
 
     def __str__(self):
-        return f"Booking #{self.pk} — {self.user} | {self.check_in_date} → {self.check_out_date}"
+        return f"Booking #{self.pk} — {self.user} | {self.check_in_date} -\
+ {self.check_out_date}"
