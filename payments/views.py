@@ -1,5 +1,6 @@
 import stripe
 from django.conf import settings
+from django.db import transaction
 from django.http import HttpResponseRedirect
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
@@ -24,25 +25,25 @@ class PaymentSuccessView(APIView):
                 {"error": "Missing session_id param."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         try:
             payment = Payment.objects.get(session_id=session_id)
             stripe_session = stripe.checkout.Session.retrieve(session_id)
 
             if stripe_session.payment_status == "paid":
-                payment.status = Payment.StatusChoices.PAID
-                payment.save()
+                if payment.status == Payment.StatusChoices.PAID:
+                    return HttpResponseRedirect(settings.FRONTEND_URL)
+                with transaction.atomic():
+                    payment.status = Payment.StatusChoices.PAID
+                    payment.save()
+                    booking = payment.booking
 
-                booking = payment.booking
-
-                if payment.type == "BOOKING":
-                    booking.status = BookingStatus.BOOKED
-                elif payment.type == "CANCELLATION":
-                    booking.status = BookingStatus.CANCELLED
-                elif payment.type == "OVERSTAY":
-                    booking.status = BookingStatus.COMPLETED
-
-                booking.save()
+                    if payment.type == Payment.TypeChoices.BOOKING:
+                        booking.status = BookingStatus.BOOKED
+                    elif payment.type == Payment.TypeChoices.CANCELLATION_FEE:
+                        booking.status = BookingStatus.CANCELLED
+                    elif payment.type == Payment.TypeChoices.OVERSTAY_FEE:
+                        booking.status = BookingStatus.COMPLETED
+                    booking.save()
 
                 return HttpResponseRedirect("http://127.0.0.1:8000/")
 
