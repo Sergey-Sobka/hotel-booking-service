@@ -15,7 +15,9 @@ class TestRoomViewSet(APITestCase):
             email="user@example.com", password="testpassword123"
         )
         self.admin = User.objects.create_user(
-            email="admin@example.com", password="adminpassword123", is_staff=True
+            email="admin@example.com",
+            password="adminpassword123",
+            is_staff=True,
         )
 
         self.room1 = Room.objects.create(
@@ -38,7 +40,9 @@ class TestRoomViewSet(APITestCase):
         )
 
         self.list_url = reverse("rooms:room-list")
-        self.detail_url = reverse("rooms:room-detail", kwargs={"pk": self.room1.pk})
+        self.detail_url = reverse(
+            "rooms:room-detail", kwargs={"pk": self.room1.pk}
+        )
 
     def test_list_rooms_public_access(self):
         res = self.client.get(self.list_url)

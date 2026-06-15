@@ -19,7 +19,9 @@ DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
 
 ALLOWED_HOSTS = [
     host.strip()
-    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(
+        ","
+    )
     if host.strip()
 ]
 
@@ -93,9 +95,21 @@ AUTH_PASSWORD_VALIDATORS = [
             "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
         )
     },
-    {"NAME": ("django.contrib.auth.password_validation.MinimumLengthValidator")},
-    {"NAME": ("django.contrib.auth.password_validation.CommonPasswordValidator")},
-    {"NAME": ("django.contrib.auth.password_validation.NumericPasswordValidator")},
+    {
+        "NAME": (
+            "django.contrib.auth.password_validation.MinimumLengthValidator"
+        )
+    },
+    {
+        "NAME": (
+            "django.contrib.auth.password_validation.CommonPasswordValidator"
+        )
+    },
+    {
+        "NAME": (
+            "django.contrib.auth.password_validation.NumericPasswordValidator"
+        )
+    },
 ]
 
 LANGUAGE_CODE = "en-us"

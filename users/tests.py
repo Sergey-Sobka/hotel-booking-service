@@ -57,14 +57,19 @@ class UserAuthTests(APITestCase):
         response_authorized = self.client.get(self.profile_url)
 
         self.assertEqual(response_authorized.status_code, status.HTTP_200_OK)
-        self.assertEqual(response_authorized.data["email"], self.user_data["email"])
+        self.assertEqual(
+            response_authorized.data["email"], self.user_data["email"]
+        )
 
     def test_user_profile_update(self):
         """Test updating user profile details via the /me/ endpoint."""
         self.client.post(self.register_url, self.user_data)
         token_response = self.client.post(
             self.token_url,
-            {"email": self.user_data["email"], "password": self.user_data["password"]},
+            {
+                "email": self.user_data["email"],
+                "password": self.user_data["password"],
+            },
         )
         access_token = token_response.data["access"]
 

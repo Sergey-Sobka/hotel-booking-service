@@ -31,7 +31,8 @@ class UserRegisterView(generics.CreateAPIView):
     ),
     patch=extend_schema(
         summary="Update current user profile (Partial)",
-        description="Partially updates editable fields of the authenticated user's profile.",
+        description="Partially updates editable fields "
+                    "of the authenticated user's profile.",
     ),
 )
 class UserProfileView(generics.RetrieveUpdateAPIView):

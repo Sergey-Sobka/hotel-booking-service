@@ -16,5 +16,7 @@ class TestRoomModel(TestCase):
         self.assertEqual(room.capacity, 4)
 
     def test_default_room_type_is_single(self):
-        room = Room.objects.create(number="102B", price_per_night=50.00, capacity=1)
+        room = Room.objects.create(
+            number="102B", price_per_night=50.00, capacity=1
+        )
         self.assertEqual(room.room_type, Room.RoomType.SINGLE)
