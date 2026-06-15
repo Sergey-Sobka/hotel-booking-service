@@ -1,7 +1,11 @@
 from rest_framework import serializers
 
 from .models import Room
-from .validators import validate_price_per_night, validate_room_capacity
+from .validators import (
+    validate_calendar_date_range,
+    validate_price_per_night,
+    validate_room_capacity,
+)
 
 
 class RoomSerializer(serializers.ModelSerializer):
@@ -23,3 +27,17 @@ class RoomSerializer(serializers.ModelSerializer):
             "price_per_night",
             "capacity",
         )
+
+
+class CalendarQuerySerializer(serializers.Serializer):
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+
+    def validate(self, attrs):
+        validate_calendar_date_range(attrs["start_date"], attrs["end_date"])
+        return attrs
+
+
+class CalendarResponseSerializer(serializers.Serializer):
+    date = serializers.DateField()
+    available = serializers.BooleanField()
