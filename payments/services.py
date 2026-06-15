@@ -16,14 +16,14 @@ def calculate_payment_amount(
     if payment_type == Payment.TypeChoices.BOOKING:
         return base_price
 
-    elif payment_type == Payment.TypeChoices.CANCELLATION:
+    elif payment_type == Payment.TypeChoices.CANCELLATION_FEE:
         return base_price * Decimal("0.5")
 
-    elif payment_type == Payment.TypeChoices.OVERSTAY:
+    elif payment_type == Payment.TypeChoices.OVERSTAY_FEE:
         price_per_night = Decimal(str(booking.price_per_night))
         return Decimal(extra_days) * price_per_night * Decimal("1.5")
 
-    elif payment_type == Payment.TypeChoices.NO_SHOW:
+    elif payment_type == Payment.TypeChoices.NO_SHOW_FEE:
         return base_price * Decimal("1.2")
 
     else:

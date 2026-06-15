@@ -12,9 +12,9 @@ class Payment(models.Model):
 
     class TypeChoices(models.TextChoices):
         BOOKING = "BOOKING", "Booking"
-        CANCELLATION = "CANCELLATION", "Cancellation Fee"
-        OVERSTAY = "OVERSTAY", "Overstay Fee"
-        NO_SHOW = "NO_SHOW", "No Show Fee"
+        CANCELLATION_FEE = "CANCELLATION_FEE", "Cancellation Fee"
+        OVERSTAY_FEE = "OVERSTAY_FEE", "Overstay Fee"
+        NO_SHOW_FEE = "NO_SHOW_FEE", "No Show Fee"
 
     booking = models.ForeignKey(
         Booking,
@@ -31,7 +31,7 @@ class Payment(models.Model):
     )
 
     type = models.CharField(
-        max_length=15, choices=TypeChoices.choices, verbose_name="Payment type"
+        max_length=20, choices=TypeChoices.choices, verbose_name="Payment type"
     )
 
     amount = models.DecimalField(
