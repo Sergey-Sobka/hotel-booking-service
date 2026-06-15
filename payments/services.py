@@ -50,7 +50,8 @@ def create_booking_payment_session(
                     "currency": getattr(settings, "STRIPE_CURRENCY", "usd"),
                     "product_data": {
                         "name": f"Accommodation Payment ({payment_type})",
-                        "description": f"Booking #{booking.id} — User: {booking.user.email}",
+                        "description": f"Booking #{booking.id}"
+                                       f" — User: {booking.user.email}",
                     },
                     "unit_amount": amount_in_cents,
                 },
