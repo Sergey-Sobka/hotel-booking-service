@@ -48,7 +48,7 @@ class Booking(models.Model):
                     "check_out_date"
                 ],
                 name="booking_dates_idx"
-        ),
+            ),
             models.Index(fields=["status"], name="booking_status_idx"),
         ]
 
