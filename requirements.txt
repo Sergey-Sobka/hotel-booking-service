@@ -4,3 +4,4 @@ redis==6.2.0
 
 djangorestframework
 djangorestframework-simplejwt
+drf-spectacular
