@@ -10,7 +10,8 @@ User = get_user_model()
 class BookingModelTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="testuser", password="testpass"
+            email="test@test.com",
+            password="testpass",
         )
         self.room = Room.objects.create(
             number="101",
