@@ -57,11 +57,13 @@ class Booking(models.Model):
             ),
             models.Index(fields=["status"], name="booking_status_idx"),
         ]
-    
+
     def clean(self):
         if self.check_out_date and self.check_in_date:
             if self.check_out_date <= self.check_in_date:
-                raise ValidationError("check_out_date must be after check_in_date")
+                raise ValidationError(
+                    "check_out_date must be after check_in_date"
+                )
 
     def __str__(self):
         return f"Booking #{self.pk} — {self.user} | {self.check_in_date} -\
