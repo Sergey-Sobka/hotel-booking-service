@@ -25,7 +25,7 @@ class Payment(models.Model):
     Booking,
         on_delete=models.CASCADE,
         related_name='payments',
-        verbose_name="Бронювання"
+        verbose_name="bookings"
     )
 
 
@@ -33,21 +33,21 @@ class Payment(models.Model):
         max_length=10,
         choices=StatusChoices.choices,
         default=StatusChoices.PENDING,
-        verbose_name="Статус платежу"
+        verbose_name="Payment status"
     )
 
 
     type = models.CharField(
         max_length=15,
         choices=TypeChoices.choices,
-        verbose_name="Тип платежу"
+        verbose_name="Payment type"
     )
 
 
     amount = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        verbose_name="Сума до оплати"
+        verbose_name="Amount to be paid"
     )
 
 
@@ -55,7 +55,7 @@ class Payment(models.Model):
         max_length=512,
         blank=True,
         null=True,
-        verbose_name="Посилання на оплату Stripe"
+        verbose_name="Stripe link"
     )
 
 
@@ -66,17 +66,14 @@ class Payment(models.Model):
     )
 
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated")
 
     class Meta:
         ordering = ['-created_at']
-        verbose_name = "Платіж"
-        verbose_name_plural = "Платежі"
+        verbose_name = "Payment"
+        verbose_name_plural = "Payments"
 
     def __str__(self):
-        return f"Payment {self.id} ({self.get_type_display()}) - {self.status} - {self.amount} USD"
-
-
-
-
+        return (f"Payment {self.id} ({self.get_type_display()}) "
+                f"- {self.status} - {self.amount} USD")
