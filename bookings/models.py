@@ -33,6 +33,18 @@ class Booking(models.Model):
 
     class Meta:
         ordering = ["-check_in_date"]
+        
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(check_out_date__gt=models.F("check_in_date")),
+                name="check_out_after_check_in",
+            ),
+        ]
+        
+        indexes = [
+            models.Index(fields=["check_in_date", "check_out_date"], name="booking_dates_idx"),
+            models.Index(fields=["status"], name="booking_status_idx"),
+        ]
 
     def __str__(self):
         return f"Booking #{self.pk} — {self.user} | {self.check_in_date} -\
