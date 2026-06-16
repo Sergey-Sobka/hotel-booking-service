@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
+from django.utils import timezone as django_timezone
 from django.db import transaction
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status, generics, serializers
@@ -44,7 +44,7 @@ class BookingCheckInView(APIView):
     )
     def post(self, request, pk):
         booking = get_object_or_404(Booking, pk=pk)
-        today = timezone.localdate()
+        today = django_timezone.localdate()
         check_in_error = get_check_in_error(booking, today)
 
         if check_in_error:
