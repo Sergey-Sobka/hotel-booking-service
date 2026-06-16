@@ -21,7 +21,10 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 class PaymentSuccessView(APIView):
     @extend_schema(
         summary="Confirm payment success",
-        description="Verify the Stripe session status and finalize the booking payment process. If the payment is confirmed in Stripe, the booking status is updated accordingly.",
+        description="Verify the Stripe session status "
+        "and finalize the booking payment process."
+        " If the payment is confirmed in Stripe,"
+        " the booking status is updated accordingly.",
         parameters=[
             OpenApiParameter(
                 name="session_id",
@@ -90,7 +93,8 @@ class PaymentSuccessView(APIView):
 class PaymentCancelView(APIView):
     @extend_schema(
         summary="Handle cancelled payment",
-        description="Endpoint triggered when the user cancels the payment process in the Stripe checkout flow.",
+        description="Endpoint triggered when the user"
+        " cancels the payment process in the Stripe checkout flow.",
         responses={
             200: OpenApiResponse(description="Cancellation message received.")
         },
@@ -109,7 +113,8 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         summary="List payments",
-        description="Retrieve a list of payments associated with the authenticated user.",
+        description="Retrieve a list of payments "
+        "associated with the authenticated user.",
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
