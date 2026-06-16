@@ -113,6 +113,15 @@ class BookingListViewTest(APITestCase):
         res = self.client.get(self.url, {"room": self.room.id})
         self.assertEqual(len(res.data), 1)
 
+    def test_staff_sees_all_bookings(self):
+        staff = User.objects.create_user(
+            email="staff@a.com", password="pass", is_staff=True
+        )
+        self.client.force_authenticate(user=staff)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 2)
+
 
 class BookingDetailViewTest(APITestCase):
     def setUp(self):
@@ -139,3 +148,11 @@ class BookingDetailViewTest(APITestCase):
         self.client.force_authenticate(user=self.other_user)
         res = self.client.get(self.url)
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+    
+    def test_staff_can_retrieve_any_booking(self):
+        staff = User.objects.create_user(
+            email="staff@a.com", password="pass", is_staff=True
+        )
+        self.client.force_authenticate(user=staff)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
