@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db import transaction
 from rest_framework import serializers
-
+from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 from .models import Booking, BookingStatus
 from .serializers import BookingSerializer, BookingCreateSerializer
@@ -76,6 +76,20 @@ class BookingCheckInView(APIView):
             status=status.HTTP_200_OK,
         )
 
+@extend_schema(
+    summary="Create a booking",
+    description=(
+        "Creates a booking for the authenticated user"
+        "Automatically attaches the user and copies the room price"
+        "Validates dates and prevents overlapping reservations"
+        "Returns a Stripe payment session URL"
+    ),
+    request=BookingCreateSerializer,
+    responses={
+        201: OpenApiResponse(description="Booking created, payment session initiated."),
+        400: OpenApiResponse(description="Validation error."),
+    },
+)
 class BookingCreateView(generics.CreateAPIView):
     serializer_class = BookingCreateSerializer
     permission_classes = [IsAuthenticated]
