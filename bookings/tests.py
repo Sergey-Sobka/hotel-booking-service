@@ -1,13 +1,14 @@
 from datetime import date, timedelta
-from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.utils import timezone
-from rest_framework.test import APITestCase
-from rest_framework import status
+from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.test import APITestCase
 
 from rooms.models import Room
+
 from .models import Booking, BookingStatus
 from .tasks import check_and_mark_no_shows
 
@@ -52,28 +53,18 @@ class BookingModelTest(TestCase):
         self.assertIn("CANCELLED", valid_statuses)
 
     def test_price_cannot_be_negative(self):
-        data = {
-            k: v
-            for k, v in self.booking_data.items()
-            if k != "price_per_night"
-        }
+        data = {k: v for k, v in self.booking_data.items() if k != "price_per_night"}
         booking = Booking(price_per_night="-10.00", **data)
         with self.assertRaises(ValidationError):
             booking.full_clean()
 
     def test_price_zero_is_valid(self):
-        data = {
-            k: v
-            for k, v in self.booking_data.items()
-            if k != "price_per_night"
-        }
+        data = {k: v for k, v in self.booking_data.items() if k != "price_per_night"}
         booking = Booking(price_per_night="0.00", **data)
         booking.full_clean()
 
     def test_check_out_must_be_after_check_in(self):
-        booking = Booking(
-            **{**self.booking_data, "check_out_date": date(2025, 7, 31)}
-        )
+        booking = Booking(**{**self.booking_data, "check_out_date": date(2025, 7, 31)})
         with self.assertRaises(ValidationError):
             booking.full_clean()
 
@@ -85,25 +76,19 @@ class BookingModelTest(TestCase):
 class BookingListViewTest(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(email="a@a.com", password="pass")
-        self.other_user = User.objects.create_user(
-            email="b@b.com", password="pass"
-        )
+        self.other_user = User.objects.create_user(email="b@b.com", password="pass")
         self.room = Room.objects.create(
-            number="101",
-            room_type=Room.RoomType.SINGLE,
-            price_per_night="100.00",
-            capacity=2,
+            number="101", room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00", capacity=2,
         )
         self.booking = Booking.objects.create(
-            user=self.user,
-            room=self.room,
+            user=self.user, room=self.room,
             check_in_date=date(2025, 8, 1),
             check_out_date=date(2025, 8, 5),
             price_per_night="100.00",
         )
         Booking.objects.create(
-            user=self.other_user,
-            room=self.room,
+            user=self.other_user, room=self.room,
             check_in_date=date(2025, 9, 1),
             check_out_date=date(2025, 9, 5),
             price_per_night="100.00",
@@ -144,25 +129,18 @@ class BookingListViewTest(APITestCase):
 class BookingDetailViewTest(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(email="a@a.com", password="pass")
-        self.other_user = User.objects.create_user(
-            email="b@b.com", password="pass"
-        )
+        self.other_user = User.objects.create_user(email="b@b.com", password="pass")
         self.room = Room.objects.create(
-            number="101",
-            room_type=Room.RoomType.SINGLE,
-            price_per_night="100.00",
-            capacity=2,
+            number="101", room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00", capacity=2,
         )
         self.booking = Booking.objects.create(
-            user=self.user,
-            room=self.room,
+            user=self.user, room=self.room,
             check_in_date=date(2025, 8, 1),
             check_out_date=date(2025, 8, 5),
             price_per_night="100.00",
         )
-        self.url = reverse(
-            "bookings:booking-detail", kwargs={"pk": self.booking.pk}
-        )
+        self.url = reverse("bookings:booking-detail", kwargs={"pk": self.booking.pk})
 
     def test_owner_can_retrieve(self):
         self.client.force_authenticate(user=self.user)
@@ -183,7 +161,83 @@ class BookingDetailViewTest(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
 
-class BookingTasksTestCase(TestCase):
+class BookingCheckInViewTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email="guest@a.com", password="pass")
+        self.staff = User.objects.create_user(
+            email="staff@a.com", password="pass", is_staff=True
+        )
+        self.room = Room.objects.create(
+            number="201",
+            room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00",
+            capacity=2,
+        )
+        today = timezone.localdate()
+        self.booking = Booking.objects.create(
+            user=self.user,
+            room=self.room,
+            check_in_date=today,
+            check_out_date=today + timedelta(days=2),
+            price_per_night="100.00",
+        )
+        self.url = reverse("bookings:booking-check-in", kwargs={"pk": self.booking.pk})
+
+    def test_staff_can_check_in_booked_booking(self):
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.ACTIVE)
+        self.assertEqual(res.data["status"], BookingStatus.ACTIVE)
+
+    def test_non_staff_cannot_check_in_booking(self):
+        self.client.force_authenticate(user=self.user)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_user_cannot_check_in_booking(self):
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_cannot_check_in_not_booked_booking(self):
+        self.booking.status = BookingStatus.CANCELLED
+        self.booking.save(update_fields=["status"])
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_check_in_before_check_in_date(self):
+        tomorrow = timezone.localdate() + timedelta(days=1)
+        self.booking.check_in_date = tomorrow
+        self.booking.check_out_date = tomorrow + timedelta(days=2)
+        self.booking.save(update_fields=["check_in_date", "check_out_date"])
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_check_in_after_check_out_date(self):
+        yesterday = timezone.localdate() - timedelta(days=1)
+        self.booking.check_in_date = yesterday - timedelta(days=2)
+        self.booking.check_out_date = yesterday
+        self.booking.save(update_fields=["check_in_date", "check_out_date"])
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class BookingTasksCeleryTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             email="guest@example.com", password="password123"
