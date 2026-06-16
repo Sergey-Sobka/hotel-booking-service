@@ -204,17 +204,6 @@ class BookingAdminActionView(APIView):
         if not (request.user.is_staff or booking.user == request.user):
             return Response({"error": "Permission denied"}, status=403)
 
-        if action == "cancel":
-            if self._is_less_than_24h(booking):
-                create_booking_payment_session(
-                    booking=booking,
-                    payment_type=Payment.TypeChoices.CANCELLATION_FEE,
-                    request=request,
-                )
-            booking.status = BookingStatus.CANCELLED
-            booking.save()
-            return Response({"detail": "Booking cancelled successfully."})
-
         elif action == "no-show" and request.user.is_staff:
             create_booking_payment_session(
                 booking, Payment.TypeChoices.NO_SHOW_FEE, request
