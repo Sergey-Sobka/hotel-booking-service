@@ -11,11 +11,11 @@ class BookingListView(generics.ListAPIView):
     filterset_class = BookingFilter
 
     def get_queryset(self):
+        if self.request.user.is_staff:
+            return Booking.objects.all().select_related("room")
         return Booking.objects.filter(
             user=self.request.user
-        ).select_related(
-            "room"
-        )
+        ).select_related("room")
 
 
 class BookingDetailView(generics.RetrieveAPIView):
@@ -23,4 +23,6 @@ class BookingDetailView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if self.request.user.is_staff:
+            return Booking.objects.all()
         return Booking.objects.filter(user=self.request.user)
