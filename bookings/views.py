@@ -1,4 +1,14 @@
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from drf_spectacular.utils import (
+    OpenApiResponse,
+    extend_schema,
+    extend_schema_view,
+    OpenApiParameter,
+    OpenApiExample,
+)
+from rest_framework import status
+from rest_framework import generics
 from django.utils import timezone as django_timezone
 from django.db import transaction
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
@@ -94,9 +104,9 @@ class BookingListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         if self.request.user.is_staff:
             return Booking.objects.all().select_related("room")
-        return Booking.objects.filter(
-            user=self.request.user
-        ).select_related("room")
+        return Booking.objects.filter(user=self.request.user).select_related(
+            "room"
+        )
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -104,12 +114,16 @@ class BookingListCreateView(generics.ListCreateAPIView):
         check_in = serializer.validated_data["check_in_date"]
         check_out = serializer.validated_data["check_out_date"]
 
-        overlapping = Booking.objects.select_for_update().filter(
-            room=room,
-            status__in=[BookingStatus.BOOKED, BookingStatus.ACTIVE],
-            check_in_date__lt=check_out,
-            check_out_date__gt=check_in,
-        ).exists()
+        overlapping = (
+            Booking.objects.select_for_update()
+            .filter(
+                room=room,
+                status__in=[BookingStatus.BOOKED, BookingStatus.ACTIVE],
+                check_in_date__lt=check_out,
+                check_out_date__gt=check_in,
+            )
+            .exists()
+        )
 
         if overlapping:
             raise serializers.ValidationError(
@@ -122,6 +136,104 @@ class BookingListCreateView(generics.ListCreateAPIView):
             booking=booking,
             payment_type=Payment.TypeChoices.BOOKING,
             request=self.request,
+        )
+
+
+@extend_schema(
+    summary="Perform administrative actions on a booking",
+    description=(
+        "Handles booking lifecycle actions including cancellation, no-show, and overstay. "
+        "Each action triggers a corresponding payment session if applicable."
+    ),
+    parameters=[
+        OpenApiParameter(
+            name="pk",
+            description="Booking ID",
+            required=True,
+            type=int,
+            location=OpenApiParameter.PATH,
+        ),
+        OpenApiParameter(
+            name="action",
+            description="The action to perform: 'cancel', 'no-show', or 'overstay'",
+            required=True,
+            type=str,
+            location=OpenApiParameter.PATH,
+        ),
+    ],
+    request={
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "extra_days": {
+                    "type": "integer",
+                    "description": "Required only for 'overstay' action",
+                }
+            },
+        }
+    },
+    responses={
+        200: OpenApiExample(
+            "Success response",
+            value={"detail": "Action completed successfully."},
+        ),
+        400: OpenApiExample(
+            "Error response", value={"error": "Invalid action"}
+        ),
+        403: OpenApiExample(
+            "Permission denied", value={"error": "Permission denied"}
+        ),
+    },
+)
+class BookingAdminActionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _is_less_than_24h(self, booking):
+        check_in_dt = timezone.make_aware(
+            timezone.datetime.combine(
+                booking.check_in_date, timezone.datetime.min.time()
+            )
+        )
+        return (check_in_dt - timezone.now()) < timedelta(hours=24)
+
+    @transaction.atomic
+    def post(self, request, pk, action):
+        booking = get_object_or_404(Booking, pk=pk)
+
+        if not (request.user.is_staff or booking.user == request.user):
+            return Response({"error": "Permission denied"}, status=403)
+
+        if action == "cancel":
+            if self._is_less_than_24h(booking):
+                create_booking_payment_session(
+                    booking=booking,
+                    payment_type=Payment.TypeChoices.CANCELLATION_FEE,
+                    request=request,
+                )
+            booking.status = BookingStatus.CANCELLED
+            booking.save()
+            return Response({"detail": "Booking cancelled successfully."})
+
+        elif action == "no-show" and request.user.is_staff:
+            create_booking_payment_session(
+                booking, Payment.TypeChoices.NO_SHOW_FEE, request
+            )
+            booking.status = BookingStatus.NO_SHOW
+            booking.save()
+            return Response({"detail": "No-show session created"})
+
+        elif action == "overstay" and request.user.is_staff:
+            extra_days = int(request.data.get("extra_days", 1))
+            create_booking_payment_session(
+                booking,
+                Payment.TypeChoices.OVERSTAY_FEE,
+                request,
+                extra_days=extra_days,
+            )
+            return Response({"detail": "Overstay session created"})
+
+        return Response(
+            {"error": "Invalid action or permission denied"}, status=400
         )
 
 

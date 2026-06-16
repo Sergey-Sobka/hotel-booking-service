@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from datetime import date
 
+from payments.serializers import PaymentSerializer
 from .models import Booking
 
 
@@ -35,6 +36,8 @@ class BookingCreateSerializer(serializers.ModelSerializer):
 
 
 class BookingSerializer(serializers.ModelSerializer):
+    payments = PaymentSerializer(many=True, read_only=True)
+
     class Meta:
         model = Booking
         fields = "__all__"
