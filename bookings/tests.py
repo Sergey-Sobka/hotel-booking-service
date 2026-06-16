@@ -264,7 +264,10 @@ class BookingCreateViewTest(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         booking = Booking.objects.get(id=res.data["id"])
         self.assertEqual(booking.user, self.user)
-        self.assertEqual(booking.price_per_night, Decimal(str(self.room.price_per_night)))
+        self.assertEqual(
+            booking.price_per_night,
+            Decimal(str(self.room.price_per_night))
+        )
 
     @patch("bookings.views.create_booking_payment_session")
     def test_check_in_in_past_rejected(self, mock_payment):
