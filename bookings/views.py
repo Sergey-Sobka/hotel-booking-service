@@ -142,7 +142,8 @@ class BookingListCreateView(generics.ListCreateAPIView):
 @extend_schema(
     summary="Perform administrative actions on a booking",
     description=(
-        "Handles booking lifecycle actions including cancellation, no-show, and overstay. "
+        "Handles booking lifecycle actions including cancellation,"
+        " no-show, and overstay."
         "Each action triggers a corresponding payment session if applicable."
     ),
     parameters=[
