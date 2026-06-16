@@ -24,19 +24,6 @@ class BookingCreateSerializer(serializers.ModelSerializer):
                 "Check-out date must be after check-in date."
             )
 
-        room = attrs.get("room")
-        overlapping = Booking.objects.filter(
-            room=room,
-            status__in=[BookingStatus.BOOKED, BookingStatus.ACTIVE],
-            check_in_date__lt=check_out,
-            check_out_date__gt=check_in,
-        ).exists()
-
-        if overlapping:
-            raise serializers.ValidationError(
-                "This room is already booked for the selected dates."
-            )
-
         return attrs
 
     def create(self, validated_data):
