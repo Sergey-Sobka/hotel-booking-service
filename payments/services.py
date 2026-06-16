@@ -1,7 +1,10 @@
 from decimal import Decimal
 import stripe
 from django.conf import settings
+from django.db import transaction
 from django.urls import reverse
+
+from bookings.models import BookingStatus, Booking
 from .models import Payment
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -73,3 +76,19 @@ def create_booking_payment_session(
     )
 
     return payment
+
+
+def complete_payment_process(payment: Payment) -> Booking:
+    with transaction.atomic():
+        payment.status = Payment.StatusChoices.PAID
+        payment.save()
+        booking = payment.booking
+        status_map = {
+            Payment.TypeChoices.BOOKING: BookingStatus.BOOKED,
+            Payment.TypeChoices.CANCELLATION_FEE: BookingStatus.CANCELLED,
+            Payment.TypeChoices.OVERSTAY_FEE: BookingStatus.COMPLETED,
+            Payment.TypeChoices.NO_SHOW_FEE: BookingStatus.NO_SHOW,
+        }
+        booking.status = status_map.get(payment.type, booking.status)
+        booking.save()
+        return booking
