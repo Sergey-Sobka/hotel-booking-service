@@ -8,16 +8,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db import transaction
 from rest_framework import serializers
-from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 from .models import Booking, BookingStatus
 from .serializers import BookingSerializer, BookingCreateSerializer
 from .filters import BookingFilter
 from .validators import get_check_in_error
-from .models import Booking, BookingStatus
 from payments.services import create_booking_payment_session
 from payments.models import Payment
-
 
 
 class BookingListView(generics.ListAPIView):
@@ -75,6 +72,7 @@ class BookingCheckInView(APIView):
             BookingSerializer(booking).data,
             status=status.HTTP_200_OK,
         )
+
 
 @extend_schema(
     summary="Create a booking",
