@@ -324,6 +324,74 @@ class BookingCheckInViewTest(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
 
+class BookingCheckOutViewTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email="guest2@a.com", password="pass")
+        self.staff = User.objects.create_user(
+            email="staff2@a.com", password="pass", is_staff=True
+        )
+        self.room = Room.objects.create(
+            number="202",
+            room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00",
+            capacity=2,
+        )
+        today = timezone.localdate()
+        self.booking = Booking.objects.create(
+            user=self.user,
+            room=self.room,
+            check_in_date=today - timedelta(days=1),
+            check_out_date=today,
+            price_per_night="100.00",
+            status=BookingStatus.ACTIVE,
+        )
+        self.url = reverse("bookings:booking-check-out", kwargs={"pk": self.booking.pk})
+
+    def test_staff_can_check_out_active_booking(self):
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.COMPLETED)
+        self.assertEqual(self.booking.actual_check_out_date, timezone.localdate())
+        self.assertEqual(res.data["overstay_days"], 0)
+
+    def test_check_out_returns_overstay_days(self):
+        yesterday = timezone.localdate() - timedelta(days=1)
+        self.booking.check_in_date = yesterday - timedelta(days=1)
+        self.booking.check_out_date = yesterday
+        self.booking.save(update_fields=["check_in_date", "check_out_date"])
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["overstay_days"], 1)
+
+    def test_cannot_check_out_not_active_booking(self):
+        self.booking.status = BookingStatus.BOOKED
+        self.booking.save(update_fields=["status"])
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_non_staff_cannot_check_out_booking(self):
+        self.client.force_authenticate(user=self.user)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_user_cannot_check_out_booking(self):
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
 # class BookingCreateViewTest(APITestCase):
 #     def setUp(self):
 #         self.user = User.objects.create_user(
