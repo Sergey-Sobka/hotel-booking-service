@@ -77,11 +77,15 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="Created"),
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="Created"
+                    ),
                 ),
                 (
                     "updated_at",
-                    models.DateTimeField(auto_now=True, verbose_name="Updated"),
+                    models.DateTimeField(
+                        auto_now=True, verbose_name="Updated"
+                    ),
                 ),
                 (
                     "booking",

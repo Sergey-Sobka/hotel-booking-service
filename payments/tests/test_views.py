@@ -14,15 +14,21 @@ class PaymentViewsTest(APITestCase):
         self.user = get_user_model().objects.create_user(
             email="test@test.com", password="password"
         )
-        self.room = Room.objects.create(number="101", price_per_night=100, capacity=1)
+        self.room = Room.objects.create(
+            number="101", price_per_night=100, capacity=1
+        )
         self.booking = Booking.objects.create(
-            user=self.user, room=self.room,
-            check_in_date=date(2026, 7, 1), check_out_date=date(2026, 7, 3),
-            price_per_night=100
+            user=self.user,
+            room=self.room,
+            check_in_date=date(2026, 7, 1),
+            check_out_date=date(2026, 7, 3),
+            price_per_night=100,
         )
         self.payment = Payment.objects.create(
-            booking=self.booking, session_id="cs_test_123",
-            amount=200, status=Payment.StatusChoices.PENDING
+            booking=self.booking,
+            session_id="cs_test_123",
+            amount=200,
+            status=Payment.StatusChoices.PENDING,
         )
         self.client.force_authenticate(user=self.user)
 
@@ -42,10 +48,10 @@ class PaymentViewsTest(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['session_id'], "cs_test_123")
+        self.assertEqual(response.data[0]["session_id"], "cs_test_123")
 
     def test_payment_cancel_view(self):
         url = reverse("payments:payment-cancel")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("cancelled", response.data['message'])
+        self.assertIn("cancelled", response.data["message"])
