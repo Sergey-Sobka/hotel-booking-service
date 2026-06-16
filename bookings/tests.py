@@ -1,9 +1,9 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
-from django.utils import timezone
+from django.utils import timezone as django_timezone
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.urls import reverse
@@ -258,7 +258,7 @@ class BookingCheckInViewTest(APITestCase):
             price_per_night="100.00",
             capacity=2,
         )
-        today = timezone.localdate()
+        today = django_timezone.localdate()
         self.booking = Booking.objects.create(
             user=self.user,
             room=self.room,
@@ -302,7 +302,7 @@ class BookingCheckInViewTest(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_cannot_check_in_before_check_in_date(self):
-        tomorrow = timezone.localdate() + timedelta(days=1)
+        tomorrow = django_timezone.localdate() + timedelta(days=1)
         self.booking.check_in_date = tomorrow
         self.booking.check_out_date = tomorrow + timedelta(days=2)
         self.booking.save(update_fields=["check_in_date", "check_out_date"])
@@ -313,7 +313,7 @@ class BookingCheckInViewTest(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_cannot_check_in_after_check_out_date(self):
-        yesterday = timezone.localdate() - timedelta(days=1)
+        yesterday = django_timezone.localdate() - timedelta(days=1)
         self.booking.check_in_date = yesterday - timedelta(days=2)
         self.booking.check_out_date = yesterday
         self.booking.save(update_fields=["check_in_date", "check_out_date"])
@@ -322,77 +322,6 @@ class BookingCheckInViewTest(APITestCase):
         res = self.client.post(self.url)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-
-# class BookingCreateViewTest(APITestCase):
-#     def setUp(self):
-#         self.user = User.objects.create_user(
-#             email="a@a.com", password="pass"
-#         )
-#         self.room = Room.objects.create(
-#             number="101",
-#             room_type=Room.RoomType.SINGLE,
-#             price_per_night="100.00",
-#             capacity=2,
-#         )
-#         self.url = reverse("bookings:booking-list-create")
-#         self.payload = {
-#             "room": self.room.id,
-#             "check_in_date": date.today().isoformat(),
-#             "check_out_date": (date.today() + timedelta(days=3)).isoformat(),
-#         }
-
-#     @patch("bookings.views.create_booking_payment_session")
-#     def test_create_booking_success(self, mock_payment):
-#         mock_payment.return_value = MagicMock()
-#         self.client.force_authenticate(user=self.user)
-#         res = self.client.post(self.url, self.payload)
-#         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-#         booking = Booking.objects.get(id=res.data["id"])
-#         self.assertEqual(booking.user, self.user)
-#         self.assertEqual(
-#             booking.price_per_night,
-#             Decimal(str(self.room.price_per_night))
-#         )
-
-#     @patch("bookings.views.create_booking_payment_session")
-#     def test_check_in_in_past_rejected(self, mock_payment):
-#         self.client.force_authenticate(user=self.user)
-#         payload = {
-#             **self.payload,
-#             "check_in_date": (date.today() - timedelta(days=1)).isoformat(),
-#         }
-#         res = self.client.post(self.url, payload)
-#         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-#     @patch("bookings.views.create_booking_payment_session")
-#     def test_check_out_before_check_in_rejected(self, mock_payment):
-#         self.client.force_authenticate(user=self.user)
-#         payload = {
-#             **self.payload,
-#             "check_out_date": date.today().isoformat(),
-#         }
-#         res = self.client.post(self.url, payload)
-#         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-#     @patch("bookings.views.create_booking_payment_session")
-#     def test_overlapping_booking_rejected(self, mock_payment):
-#         mock_payment.return_value = MagicMock()
-#         Booking.objects.create(
-#             user=self.user,
-#             room=self.room,
-#             check_in_date=date.today(),
-#             check_out_date=date.today() + timedelta(days=3),
-#             price_per_night="100.00",
-#             status=BookingStatus.BOOKED,
-#         )
-#         self.client.force_authenticate(user=self.user)
-#         res = self.client.post(self.url, self.payload)
-#         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-#     def test_unauthenticated_rejected(self):
-#         res = self.client.post(self.url, self.payload)
-#         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class BookingTasksCeleryTest(TestCase):
@@ -406,7 +335,7 @@ class BookingTasksCeleryTest(TestCase):
             price_per_night=100.00,
             capacity=2,
         )
-        self.today = timezone.now().date()
+        self.today = django_timezone.now().date()
         self.overdue_booking = Booking.objects.create(
             room=self.room,
             user=self.user,
@@ -431,3 +360,83 @@ class BookingTasksCeleryTest(TestCase):
         self.assertEqual(self.overdue_booking.status, BookingStatus.NO_SHOW)
         self.assertEqual(self.future_booking.status, BookingStatus.BOOKED)
         self.assertIn("Successfully marked 1 bookings as NO_SHOW", result)
+
+
+class BookingCancelViewTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="a@a.com", password="pass"
+        )
+        self.other_user = User.objects.create_user(
+            email="b@b.com", password="pass"
+        )
+        self.staff = User.objects.create_user(
+            email="staff@a.com", password="pass", is_staff=True
+        )
+        self.room = Room.objects.create(
+            number="101",
+            room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00",
+            capacity=2,
+        )
+        self.booking = Booking.objects.create(
+            user=self.user,
+            room=self.room,
+            check_in_date=date.today() + timedelta(days=5),
+            check_out_date=date.today() + timedelta(days=8),
+            price_per_night="100.00",
+            status=BookingStatus.BOOKED,
+        )
+        self.url = reverse(
+            "bookings:booking-cancel", kwargs={"pk": self.booking.pk}
+        )
+
+    def test_owner_can_cancel(self):
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.CANCELLED)
+
+    def test_staff_can_cancel(self):
+        self.client.force_authenticate(user=self.staff)
+        res = self.client.post(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_other_user_cannot_cancel(self):
+        self.client.force_authenticate(user=self.other_user)
+        res = self.client.post(self.url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cannot_cancel_active_booking(self):
+        self.booking.status = BookingStatus.ACTIVE
+        self.booking.save()
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post(self.url)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_early_cancellation_not_late(self):
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post(self.url)
+        self.assertFalse(res.data["is_late_cancellation"])
+        self.booking.refresh_from_db()
+        self.assertFalse(self.booking.is_late_cancellation)
+
+    def test_late_cancellation_flagged(self):
+        # check-in is in 12 hours
+        fake_now = datetime.combine(
+            self.booking.check_in_date, datetime.min.time()
+        ).replace(tzinfo=timezone.utc) - timedelta(hours=12)
+
+        with patch(
+            "bookings.views.datetime"
+        ) as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.combine = datetime.combine
+            mock_dt.min = datetime.min
+            self.client.force_authenticate(user=self.user)
+            res = self.client.post(self.url)
+
+        self.assertTrue(res.data["is_late_cancellation"])
+        self.booking.refresh_from_db()
+        self.assertTrue(self.booking.is_late_cancellation)
