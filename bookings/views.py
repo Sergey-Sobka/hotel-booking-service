@@ -1,9 +1,4 @@
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
-from drf_spectacular.utils import (
-    OpenApiParameter,
-    OpenApiExample,
-)
 from django.utils import timezone as django_timezone
 from django.db import transaction
 from drf_spectacular.utils import (
