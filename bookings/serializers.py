@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from .models import Booking
+from datetime import date
 
+from .models import Booking
 
 
 class BookingCreateSerializer(serializers.ModelSerializer):
