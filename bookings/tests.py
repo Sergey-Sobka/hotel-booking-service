@@ -423,20 +423,16 @@ class BookingCancelViewTest(APITestCase):
         self.assertFalse(self.booking.is_late_cancellation)
 
     def test_late_cancellation_flagged(self):
-        # check-in is in 12 hours
         fake_now = datetime.combine(
             self.booking.check_in_date, datetime.min.time()
         ).replace(tzinfo=timezone.utc) - timedelta(hours=12)
 
-        with patch(
-            "bookings.views.datetime"
-        ) as mock_dt:
-            mock_dt.now.return_value = fake_now
-            mock_dt.combine = datetime.combine
-            mock_dt.min = datetime.min
+        with patch("bookings.views.create_booking_payment_session") as mock_payment, \
+                patch("bookings.views.timezone.now") as mock_now:
+            mock_now.return_value = fake_now
             self.client.force_authenticate(user=self.user)
             res = self.client.post(self.url)
-
         self.assertTrue(res.data["is_late_cancellation"])
         self.booking.refresh_from_db()
         self.assertTrue(self.booking.is_late_cancellation)
+        self.assertEqual(self.booking.status, BookingStatus.CANCELLED)
