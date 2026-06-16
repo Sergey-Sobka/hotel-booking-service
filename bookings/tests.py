@@ -57,18 +57,28 @@ class BookingModelTest(TestCase):
         self.assertIn("CANCELLED", valid_statuses)
 
     def test_price_cannot_be_negative(self):
-        data = {k: v for k, v in self.booking_data.items() if k != "price_per_night"}
+        data = {
+            k: v
+            for k, v in self.booking_data.items()
+            if k != "price_per_night"
+        }
         booking = Booking(price_per_night="-10.00", **data)
         with self.assertRaises(ValidationError):
             booking.full_clean()
 
     def test_price_zero_is_valid(self):
-        data = {k: v for k, v in self.booking_data.items() if k != "price_per_night"}
+        data = {
+            k: v
+            for k, v in self.booking_data.items()
+            if k != "price_per_night"
+        }
         booking = Booking(price_per_night="0.00", **data)
         booking.full_clean()
 
     def test_check_out_must_be_after_check_in(self):
-        booking = Booking(**{**self.booking_data, "check_out_date": date(2025, 7, 31)})
+        booking = Booking(
+            **{**self.booking_data, "check_out_date": date(2025, 7, 31)}
+        )
         with self.assertRaises(ValidationError):
             booking.full_clean()
 
@@ -80,19 +90,25 @@ class BookingModelTest(TestCase):
 class BookingListCreateViewTest(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(email="a@a.com", password="pass")
-        self.other_user = User.objects.create_user(email="b@b.com", password="pass")
+        self.other_user = User.objects.create_user(
+            email="b@b.com", password="pass"
+        )
         self.room = Room.objects.create(
-            number="101", room_type=Room.RoomType.SINGLE,
-            price_per_night="100.00", capacity=2,
+            number="101",
+            room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00",
+            capacity=2,
         )
         self.booking = Booking.objects.create(
-            user=self.user, room=self.room,
+            user=self.user,
+            room=self.room,
             check_in_date=date(2025, 8, 1),
             check_out_date=date(2025, 8, 5),
             price_per_night=Decimal("100.00"),
         )
         Booking.objects.create(
-            user=self.other_user, room=self.room,
+            user=self.other_user,
+            room=self.room,
             check_in_date=date(2025, 9, 1),
             check_out_date=date(2025, 9, 5),
             price_per_night="100.00",
@@ -114,8 +130,7 @@ class BookingListCreateViewTest(APITestCase):
         booking = Booking.objects.get(id=res.data["id"])
         self.assertEqual(booking.user, self.user)
         self.assertEqual(
-            booking.price_per_night,
-            Decimal(str(self.room.price_per_night))
+            booking.price_per_night, Decimal(str(self.room.price_per_night))
         )
 
     @patch("bookings.views.create_booking_payment_session")
@@ -191,18 +206,25 @@ class BookingListCreateViewTest(APITestCase):
 class BookingDetailViewTest(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(email="a@a.com", password="pass")
-        self.other_user = User.objects.create_user(email="b@b.com", password="pass")
+        self.other_user = User.objects.create_user(
+            email="b@b.com", password="pass"
+        )
         self.room = Room.objects.create(
-            number="101", room_type=Room.RoomType.SINGLE,
-            price_per_night="100.00", capacity=2,
+            number="101",
+            room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00",
+            capacity=2,
         )
         self.booking = Booking.objects.create(
-            user=self.user, room=self.room,
+            user=self.user,
+            room=self.room,
             check_in_date=date(2025, 8, 1),
             check_out_date=date(2025, 8, 5),
             price_per_night="100.00",
         )
-        self.url = reverse("bookings:booking-detail", kwargs={"pk": self.booking.pk})
+        self.url = reverse(
+            "bookings:booking-detail", kwargs={"pk": self.booking.pk}
+        )
 
     def test_owner_can_retrieve(self):
         self.client.force_authenticate(user=self.user)
@@ -225,7 +247,9 @@ class BookingDetailViewTest(APITestCase):
 
 class BookingCheckInViewTest(APITestCase):
     def setUp(self):
-        self.user = User.objects.create_user(email="guest@a.com", password="pass")
+        self.user = User.objects.create_user(
+            email="guest@a.com", password="pass"
+        )
         self.staff = User.objects.create_user(
             email="staff@a.com", password="pass", is_staff=True
         )
@@ -243,7 +267,9 @@ class BookingCheckInViewTest(APITestCase):
             check_out_date=today + timedelta(days=2),
             price_per_night="100.00",
         )
-        self.url = reverse("bookings:booking-check-in", kwargs={"pk": self.booking.pk})
+        self.url = reverse(
+            "bookings:booking-check-in", kwargs={"pk": self.booking.pk}
+        )
 
     def test_staff_can_check_in_booked_booking(self):
         self.client.force_authenticate(user=self.staff)
