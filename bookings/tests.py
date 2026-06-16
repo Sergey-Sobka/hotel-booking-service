@@ -7,6 +7,9 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from django.urls import reverse
 
+from unittest.mock import patch, MagicMock
+from decimal import Decimal
+
 from rooms.models import Room
 from .models import Booking, BookingStatus
 
@@ -30,7 +33,7 @@ class BookingModelTest(TestCase):
             room=self.room,
             check_in_date=date(2025, 8, 1),
             check_out_date=date(2025, 8, 5),
-            price_per_night="120.00",
+            price_per_night=Decimal("120.00"),
         )
 
     def test_default_status_is_booked(self):
@@ -83,7 +86,7 @@ class BookingListViewTest(APITestCase):
             user=self.user, room=self.room,
             check_in_date=date(2025, 8, 1),
             check_out_date=date(2025, 8, 5),
-            price_per_night="100.00",
+            price_per_night=Decimal("100.00"),
         )
         Booking.objects.create(
             user=self.other_user, room=self.room,
@@ -166,11 +169,11 @@ class BookingCheckInViewTest(APITestCase):
             email="staff@a.com", password="pass", is_staff=True
         )
         self.room = Room.objects.create(
-            number="201",
-            room_type=Room.RoomType.SINGLE,
-            price_per_night="100.00",
-            capacity=2,
-        )
+                    number="201",
+                    room_type=Room.RoomType.SINGLE,
+                    price_per_night="100.00",
+                    capacity=2,
+                )
         today = timezone.localdate()
         self.booking = Booking.objects.create(
             user=self.user,
@@ -233,3 +236,71 @@ class BookingCheckInViewTest(APITestCase):
         res = self.client.post(self.url)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class BookingCreateViewTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="a@a.com", password="pass"
+        )
+        self.room = Room.objects.create(
+            number="101",
+            room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00",
+            capacity=2,
+        )
+        self.url = reverse("bookings:booking-create")
+        self.payload = {
+            "room": self.room.id,
+            "check_in_date": date.today().isoformat(),
+            "check_out_date": (date.today() + timedelta(days=3)).isoformat(),
+        }
+
+    @patch("bookings.views.create_booking_payment_session")
+    def test_create_booking_success(self, mock_payment):
+        mock_payment.return_value = MagicMock()
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post(self.url, self.payload)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        booking = Booking.objects.get(id=res.data["id"])
+        self.assertEqual(booking.user, self.user)
+        self.assertEqual(booking.price_per_night, Decimal(str(self.room.price_per_night)))
+
+    @patch("bookings.views.create_booking_payment_session")
+    def test_check_in_in_past_rejected(self, mock_payment):
+        self.client.force_authenticate(user=self.user)
+        payload = {
+            **self.payload,
+            "check_in_date": (date.today() - timedelta(days=1)).isoformat(),
+        }
+        res = self.client.post(self.url, payload)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("bookings.views.create_booking_payment_session")
+    def test_check_out_before_check_in_rejected(self, mock_payment):
+        self.client.force_authenticate(user=self.user)
+        payload = {
+            **self.payload,
+            "check_out_date": date.today().isoformat(),
+        }
+        res = self.client.post(self.url, payload)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("bookings.views.create_booking_payment_session")
+    def test_overlapping_booking_rejected(self, mock_payment):
+        mock_payment.return_value = MagicMock()
+        Booking.objects.create(
+            user=self.user,
+            room=self.room,
+            check_in_date=date.today(),
+            check_out_date=date.today() + timedelta(days=3),
+            price_per_night="100.00",
+            status=BookingStatus.BOOKED,
+        )
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post(self.url, self.payload)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unauthenticated_rejected(self):
+        res = self.client.post(self.url, self.payload)
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
