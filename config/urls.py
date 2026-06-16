@@ -28,4 +28,5 @@ urlpatterns = [
         name="redoc",
     ),
     path("api/payments/", include("payments.urls", namespace="payments")),
+    path("api/bookings/", include("bookings.urls", namespace="bookings")),
 ]
