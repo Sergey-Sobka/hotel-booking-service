@@ -26,6 +26,7 @@ class PaymentViewsTest(APITestCase):
         )
         self.payment = Payment.objects.create(
             booking=self.booking,
+            type=Payment.TypeChoices.BOOKING,
             session_id="cs_test_123",
             amount=200,
             status=Payment.StatusChoices.PENDING,
@@ -55,3 +56,18 @@ class PaymentViewsTest(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("cancelled", response.data["message"])
+
+
+class PaymentViewsUnauthenticatedTest(APITestCase):
+    def setUp(self):
+        pass
+
+    def test_payment_list_unauthorized(self):
+        url = reverse("payments:payment-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_payment_cancel_unauthorized(self):
+        url = reverse("payments:payment-cancel")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

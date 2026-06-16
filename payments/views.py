@@ -1,5 +1,6 @@
 import stripe
 from django.conf import settings
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import (
     extend_schema,
     OpenApiParameter,
@@ -19,6 +20,8 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 class PaymentSuccessView(APIView):
+    permission_classes = [IsAuthenticated]
+
     @extend_schema(
         summary="Confirm payment success",
         description="Verify the Stripe session status "
@@ -53,11 +56,16 @@ class PaymentSuccessView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            payment = Payment.objects.get(session_id=session_id)
+        payment = get_object_or_404(
+            Payment,
+            session_id=session_id,
+            booking__user=request.user,
+        )
 
+        try:
             if payment.status != Payment.StatusChoices.PAID:
                 stripe_session = stripe.checkout.Session.retrieve(session_id)
+
                 if stripe_session.payment_status != "paid":
                     return Response(
                         {"error": "Not paid yet."},
@@ -78,11 +86,6 @@ class PaymentSuccessView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        except Payment.DoesNotExist:
-            return Response(
-                {"error": "Payment not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
         except stripe.error.StripeError as e:
             return Response(
                 {"error": f"Stripe error: {str(e)}"},
@@ -91,6 +94,8 @@ class PaymentSuccessView(APIView):
 
 
 class PaymentCancelView(APIView):
+    permission_classes = [IsAuthenticated]
+
     @extend_schema(
         summary="Handle cancelled payment",
         description="Endpoint triggered when the user"
