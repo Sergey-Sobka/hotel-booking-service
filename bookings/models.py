@@ -37,7 +37,7 @@ class Booking(models.Model):
         validators=[MinValueValidator(0)],
     )
     is_late_cancellation = models.BooleanField(default=False)
-    
+
     class Meta:
         ordering = ["-check_in_date"]
 
