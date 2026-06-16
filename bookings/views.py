@@ -1,29 +1,20 @@
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework import generics
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.db import transaction
+from rest_framework import serializers
 
 from .models import Booking, BookingStatus
-from .serializers import BookingSerializer
+from .serializers import BookingSerializer, BookingCreateSerializer
 from .filters import BookingFilter
 from .validators import get_check_in_error
-
-
-class BookingListView(generics.ListAPIView):
-    serializer_class = BookingSerializer
-    permission_classes = [IsAuthenticated]
-    filterset_class = BookingFilter
-
-    def get_queryset(self):
-        if self.request.user.is_staff:
-            return Booking.objects.all().select_related("room")
-        return Booking.objects.filter(
-            user=self.request.user
-        ).select_related("room")
+from payments.services import create_booking_payment_session
+from payments.models import Payment
 
 
 class BookingDetailView(generics.RetrieveAPIView):
@@ -67,4 +58,67 @@ class BookingCheckInView(APIView):
         return Response(
             BookingSerializer(booking).data,
             status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema_view(
+    post=extend_schema(
+        summary="Create a booking",
+        description=(
+            "Creates a booking for the authenticated user"
+            "Automatically attaches the user and copies the room price"
+            "Validates dates and prevents overlapping reservations"
+            "Returns a Stripe payment session URL"
+        ),
+        request=BookingCreateSerializer,
+        responses={
+            201: OpenApiResponse(
+                description="Booking created, payment session initiated"
+            ),
+            400: OpenApiResponse(
+                description="Validation errors or room unavailable"
+            ),
+        },
+    )
+)
+class BookingListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    filterset_class = BookingFilter
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return BookingCreateSerializer
+        return BookingSerializer
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return Booking.objects.all().select_related("room")
+        return Booking.objects.filter(
+            user=self.request.user
+        ).select_related("room")
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        room = serializer.validated_data["room"]
+        check_in = serializer.validated_data["check_in_date"]
+        check_out = serializer.validated_data["check_out_date"]
+
+        overlapping = Booking.objects.select_for_update().filter(
+            room=room,
+            status__in=[BookingStatus.BOOKED, BookingStatus.ACTIVE],
+            check_in_date__lt=check_out,
+            check_out_date__gt=check_in,
+        ).exists()
+
+        if overlapping:
+            raise serializers.ValidationError(
+                "This room is already booked for the selected dates."
+            )
+
+        booking = serializer.save()
+
+        create_booking_payment_session(
+            booking=booking,
+            payment_type=Payment.TypeChoices.BOOKING,
+            request=self.request,
         )
