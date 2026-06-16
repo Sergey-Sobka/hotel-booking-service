@@ -1,7 +1,8 @@
-from datetime import date
+from datetime import date, timedelta
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.urls import reverse
@@ -156,3 +157,79 @@ class BookingDetailViewTest(APITestCase):
         self.client.force_authenticate(user=staff)
         res = self.client.get(self.url)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+
+class BookingCheckInViewTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email="guest@a.com", password="pass")
+        self.staff = User.objects.create_user(
+            email="staff@a.com", password="pass", is_staff=True
+        )
+        self.room = Room.objects.create(
+            number="201",
+            room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00",
+            capacity=2,
+        )
+        today = timezone.localdate()
+        self.booking = Booking.objects.create(
+            user=self.user,
+            room=self.room,
+            check_in_date=today,
+            check_out_date=today + timedelta(days=2),
+            price_per_night="100.00",
+        )
+        self.url = reverse("bookings:booking-check-in", kwargs={"pk": self.booking.pk})
+
+    def test_staff_can_check_in_booked_booking(self):
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.ACTIVE)
+        self.assertEqual(res.data["status"], BookingStatus.ACTIVE)
+
+    def test_non_staff_cannot_check_in_booking(self):
+        self.client.force_authenticate(user=self.user)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_user_cannot_check_in_booking(self):
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_cannot_check_in_not_booked_booking(self):
+        self.booking.status = BookingStatus.CANCELLED
+        self.booking.save(update_fields=["status"])
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_check_in_before_check_in_date(self):
+        tomorrow = timezone.localdate() + timedelta(days=1)
+        self.booking.check_in_date = tomorrow
+        self.booking.check_out_date = tomorrow + timedelta(days=2)
+        self.booking.save(update_fields=["check_in_date", "check_out_date"])
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_check_in_after_check_out_date(self):
+        yesterday = timezone.localdate() - timedelta(days=1)
+        self.booking.check_in_date = yesterday - timedelta(days=2)
+        self.booking.check_out_date = yesterday
+        self.booking.save(update_fields=["check_in_date", "check_out_date"])
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
