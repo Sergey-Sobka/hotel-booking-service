@@ -44,8 +44,15 @@ class PaymentSuccessView(APIView):
                         booking.status = BookingStatus.COMPLETED
                     booking.save()
 
-                return HttpResponseRedirect("http://127.0.0.1:8000/")
-
+                # return HttpResponseRedirect("http://127.0.0.1:8000/")
+                return Response({
+                    "message": "Payment successful",
+                    "booking": {
+                        "id": booking.id,
+                        "status": booking.status,
+                        "check_in": booking.check_in_date
+                    }
+                }, status=status.HTTP_200_OK)
             else:
                 return Response(
                     {"error": "Stripe session is not paid yet."},
@@ -66,7 +73,10 @@ class PaymentSuccessView(APIView):
 
 class PaymentCancelView(APIView):
     def get(self, request):
-        return HttpResponseRedirect("http://127.0.0.1:8000/")
+        return Response(
+            {"message": "Payment process was cancelled by the user."},
+            status=status.HTTP_200_OK
+        )
 
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
