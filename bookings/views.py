@@ -1,17 +1,16 @@
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import (
-    OpenApiResponse,
-    extend_schema,
-    extend_schema_view,
     OpenApiParameter,
     OpenApiExample,
 )
-from rest_framework import status
-from rest_framework import generics
 from django.utils import timezone as django_timezone
 from django.db import transaction
-from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
+from drf_spectacular.utils import (
+    OpenApiResponse,
+    extend_schema,
+    extend_schema_view,
+)
 from rest_framework import status, generics, serializers
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
@@ -139,91 +138,49 @@ class BookingListCreateView(generics.ListCreateAPIView):
         )
 
 
-@extend_schema(
-    summary="Perform administrative actions on a booking",
-    description=(
-        "Handles booking lifecycle actions including cancellation,"
-        " no-show, and overstay."
-        "Each action triggers a corresponding payment session if applicable."
-    ),
-    parameters=[
-        OpenApiParameter(
-            name="pk",
-            description="Booking ID",
-            required=True,
-            type=int,
-            location=OpenApiParameter.PATH,
-        ),
-        OpenApiParameter(
-            name="action",
-            description="The action to perform: 'cancel', 'no-show', or 'overstay'",
-            required=True,
-            type=str,
-            location=OpenApiParameter.PATH,
-        ),
-    ],
-    request={
-        "application/json": {
-            "type": "object",
-            "properties": {
-                "extra_days": {
-                    "type": "integer",
-                    "description": "Required only for 'overstay' action",
-                }
-            },
-        }
-    },
-    responses={
-        200: OpenApiExample(
-            "Success response",
-            value={"detail": "Action completed successfully."},
-        ),
-        400: OpenApiExample(
-            "Error response", value={"error": "Invalid action"}
-        ),
-        403: OpenApiExample(
-            "Permission denied", value={"error": "Permission denied"}
-        ),
-    },
-)
-class BookingAdminActionView(APIView):
+class BookingNoShowView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def _is_less_than_24h(self, booking):
-        check_in_dt = timezone.make_aware(
-            timezone.datetime.combine(
-                booking.check_in_date, timezone.datetime.min.time()
-            )
-        )
-        return (check_in_dt - timezone.now()) < timedelta(hours=24)
-
+    @extend_schema(summary="Mark booking as no-show and trigger fee")
     @transaction.atomic
-    def post(self, request, pk, action):
+    def post(self, request, pk):
         booking = get_object_or_404(Booking, pk=pk)
 
-        if not (request.user.is_staff or booking.user == request.user):
-            return Response({"error": "Permission denied"}, status=403)
-
-        elif action == "no-show" and request.user.is_staff:
-            create_booking_payment_session(
-                booking, Payment.TypeChoices.NO_SHOW_FEE, request
+        if booking.status != BookingStatus.BOOKED:
+            raise ValidationError(
+                f"Cannot mark a booking with status '{booking.status}' as no-show."
             )
-            booking.status = BookingStatus.NO_SHOW
-            booking.save()
-            return Response({"detail": "No-show session created"})
 
-        elif action == "overstay" and request.user.is_staff:
-            extra_days = int(request.data.get("extra_days", 1))
-            create_booking_payment_session(
-                booking,
-                Payment.TypeChoices.OVERSTAY_FEE,
-                request,
-                extra_days=extra_days,
-            )
-            return Response({"detail": "Overstay session created"})
-
+        create_booking_payment_session(
+            booking, Payment.TypeChoices.NO_SHOW_FEE, request
+        )
+        booking.status = BookingStatus.NO_SHOW
+        booking.save(update_fields=["status"])
         return Response(
-            {"error": "Invalid action or permission denied"}, status=400
+            {"detail": "No-show status applied and fee session created."}
+        )
+
+
+class BookingOverstayView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(summary="Trigger overstay fee")
+    @transaction.atomic
+    def post(self, request, pk):
+        booking = get_object_or_404(Booking, pk=pk)
+        if booking.status != BookingStatus.ACTIVE:
+            raise ValidationError(
+                "Only ACTIVE bookings can have overstay charges."
+            )
+        extra_days = int(request.data.get("extra_days", 1))
+        create_booking_payment_session(
+            booking,
+            Payment.TypeChoices.OVERSTAY_FEE,
+            request,
+            extra_days=extra_days,
+        )
+        return Response(
+            {"detail": f"Overstay fee for {extra_days} days initiated."}
         )
 
 
@@ -239,11 +196,16 @@ class BookingCancelView(APIView):
             "as late and will incur a cancellation fee (handled in HBS-23)."
         ),
         responses={
-            200: OpenApiResponse(description="Booking cancelled successfully."),
+            200: OpenApiResponse(
+                description="Booking cancelled successfully."
+            ),
             400: OpenApiResponse(description="Booking cannot be cancelled."),
-            403: OpenApiResponse(description="Not allowed to cancel this booking."),
+            403: OpenApiResponse(
+                description="Not allowed to cancel this booking."
+            ),
         },
     )
+    @transaction.atomic
     def post(self, request, pk):
         booking = get_object_or_404(Booking, pk=pk)
 
@@ -262,7 +224,12 @@ class BookingCancelView(APIView):
         ).replace(tzinfo=timezone.utc)
         now = datetime.now(tz=timezone.utc)
         is_late = (check_in_datetime - now) < timedelta(hours=24)
-
+        if is_late:
+            create_booking_payment_session(
+                booking=booking,
+                payment_type=Payment.TypeChoices.CANCELLATION_FEE,
+                request=request,
+            )
         booking.status = BookingStatus.CANCELLED
         booking.is_late_cancellation = is_late
         booking.save(update_fields=["status", "is_late_cancellation"])
