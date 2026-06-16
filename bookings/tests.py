@@ -426,10 +426,11 @@ class BookingCancelViewTest(APITestCase):
         fake_now = datetime.combine(
             self.booking.check_in_date, datetime.min.time()
         ).replace(tzinfo=timezone.utc) - timedelta(hours=12)
-
-        with patch("bookings.views.create_booking_payment_session") as _, \
-                patch("bookings.views.timezone.now") as mock_now:
-            mock_now.return_value = fake_now
+        with patch("bookings.views.datetime") as mock_datetime, \
+                patch("bookings.views.create_booking_payment_session") as _:
+            mock_datetime.now.return_value = fake_now
+            mock_datetime.combine = datetime.combine
+            mock_datetime.min = datetime.min
             self.client.force_authenticate(user=self.user)
             res = self.client.post(self.url)
         self.assertTrue(res.data["is_late_cancellation"])
