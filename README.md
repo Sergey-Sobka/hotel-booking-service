@@ -103,3 +103,18 @@ forks; all developers work in the same shared repository.
 
 The Trello card ID must also appear in the branch name, commit messages, and
 pull request title.
+
+## Telegram notifications setup
+
+The project uses Telegram Bot API to send staff/admin notifications.
+
+### Environment variables
+
+Add these variables to `.env`:
+
+```env
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+TELEGRAM_API_URL=https://api.telegram.org
+
+

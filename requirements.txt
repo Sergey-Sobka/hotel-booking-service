@@ -10,3 +10,4 @@ stripe
 django-filter
 
 celery
+requests
