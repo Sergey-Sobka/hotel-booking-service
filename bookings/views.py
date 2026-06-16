@@ -7,7 +7,10 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db import transaction
+from rest_framework import serializers
 
+
+from .models import Booking, BookingStatus
 from .serializers import BookingSerializer, BookingCreateSerializer
 from .filters import BookingFilter
 from .validators import get_check_in_error
@@ -83,12 +86,17 @@ class BookingCreateView(generics.CreateAPIView):
         check_in = serializer.validated_data["check_in_date"]
         check_out = serializer.validated_data["check_out_date"]
 
-        Booking.objects.select_for_update().filter(
+        overlapping = Booking.objects.select_for_update().filter(
             room=room,
             status__in=[BookingStatus.BOOKED, BookingStatus.ACTIVE],
             check_in_date__lt=check_out,
             check_out_date__gt=check_in,
-        )
+        ).exists()
+
+        if overlapping:
+            raise serializers.ValidationError(
+                "This room is already booked for the selected dates."
+            )
 
         booking = serializer.save()
 
