@@ -6,11 +6,15 @@ from rest_framework import generics
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.db import transaction
 
-from .models import Booking, BookingStatus
-from .serializers import BookingSerializer
+from .serializers import BookingSerializer, BookingCreateSerializer
 from .filters import BookingFilter
 from .validators import get_check_in_error
+from .models import Booking, BookingStatus
+from payments.services import create_booking_payment_session
+from payments.models import Payment
+
 
 
 class BookingListView(generics.ListAPIView):
@@ -67,4 +71,29 @@ class BookingCheckInView(APIView):
         return Response(
             BookingSerializer(booking).data,
             status=status.HTTP_200_OK,
+        )
+
+class BookingCreateView(generics.CreateAPIView):
+    serializer_class = BookingCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        room = serializer.validated_data["room"]
+        check_in = serializer.validated_data["check_in_date"]
+        check_out = serializer.validated_data["check_out_date"]
+
+        Booking.objects.select_for_update().filter(
+            room=room,
+            status__in=[BookingStatus.BOOKED, BookingStatus.ACTIVE],
+            check_in_date__lt=check_out,
+            check_out_date__gt=check_in,
+        )
+
+        booking = serializer.save()
+
+        create_booking_payment_session(
+            booking=booking,
+            payment_type=Payment.TypeChoices.BOOKING,
+            request=self.request,
         )
