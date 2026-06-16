@@ -11,7 +11,7 @@ class BookingAdmin(admin.ModelAdmin):
         "status",
         "check_in_date",
         "check_out_date",
-        "price_per_night"
+        "price_per_night",
     )
     list_filter = ("status",)
     search_fields = ("user__email", "room__id")

@@ -16,7 +16,6 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 class PaymentSuccessView(APIView):
-
     def get(self, request):
         session_id = request.query_params.get("session_id")
 
@@ -66,7 +65,6 @@ class PaymentSuccessView(APIView):
 
 
 class PaymentCancelView(APIView):
-
     def get(self, request):
         return HttpResponseRedirect("http://127.0.0.1:8000/")
 

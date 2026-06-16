@@ -19,7 +19,9 @@ class TestRoomViewSet(APITestCase):
             email="user@example.com", password="testpassword123"
         )
         self.admin = User.objects.create_user(
-            email="admin@example.com", password="adminpassword123", is_staff=True
+            email="admin@example.com",
+            password="adminpassword123",
+            is_staff=True,
         )
 
         self.room1 = Room.objects.create(

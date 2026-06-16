@@ -5,24 +5,29 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('bookings', '0001_initial'),
-        ('rooms', '0001_initial'),
+        ("bookings", "0001_initial"),
+        ("rooms", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddIndex(
-            model_name='booking',
-            index=models.Index(fields=['check_in_date', 'check_out_date'], name='booking_dates_idx'),
+            model_name="booking",
+            index=models.Index(
+                fields=["check_in_date", "check_out_date"],
+                name="booking_dates_idx",
+            ),
         ),
         migrations.AddIndex(
-            model_name='booking',
-            index=models.Index(fields=['status'], name='booking_status_idx'),
+            model_name="booking",
+            index=models.Index(fields=["status"], name="booking_status_idx"),
         ),
         migrations.AddConstraint(
-            model_name='booking',
-            constraint=models.CheckConstraint(condition=models.Q(('check_out_date__gt', models.F('check_in_date'))), name='check_out_after_check_in'),
+            model_name="booking",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("check_out_date__gt", models.F("check_in_date"))),
+                name="check_out_after_check_in",
+            ),
         ),
     ]

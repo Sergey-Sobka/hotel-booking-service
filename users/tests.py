@@ -64,7 +64,10 @@ class UserAuthTests(APITestCase):
         self.client.post(self.register_url, self.user_data)
         token_response = self.client.post(
             self.token_url,
-            {"email": self.user_data["email"], "password": self.user_data["password"]},
+            {
+                "email": self.user_data["email"],
+                "password": self.user_data["password"],
+            },
         )
         access_token = token_response.data["access"]
 

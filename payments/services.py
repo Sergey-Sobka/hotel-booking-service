@@ -51,7 +51,7 @@ def create_booking_payment_session(
                     "product_data": {
                         "name": f"Accommodation Payment ({payment_type})",
                         "description": f"Booking #{booking.id}"
-                                       f" — User: {booking.user.email}",
+                        f" — User: {booking.user.email}",
                     },
                     "unit_amount": amount_in_cents,
                 },

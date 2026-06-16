@@ -7,7 +7,6 @@ from django.core.exceptions import ValidationError
 from rooms.models import Room
 from .models import Booking, BookingStatus
 
-
 User = get_user_model()
 
 
@@ -49,30 +48,18 @@ class BookingModelTest(TestCase):
         self.assertIn("CANCELLED", valid_statuses)
 
     def test_price_cannot_be_negative(self):
-        data = {
-            k: v
-            for k, v in self.booking_data.items()
-            if k != "price_per_night"
-        }
+        data = {k: v for k, v in self.booking_data.items() if k != "price_per_night"}
         booking = Booking(price_per_night="-10.00", **data)
         with self.assertRaises(ValidationError):
             booking.full_clean()
 
     def test_price_zero_is_valid(self):
-        data = {
-            k: v
-            for k, v in self.booking_data.items()
-            if k != "price_per_night"
-        }
+        data = {k: v for k, v in self.booking_data.items() if k != "price_per_night"}
         booking = Booking(price_per_night="0.00", **data)
         booking.full_clean()
 
     def test_check_out_must_be_after_check_in(self):
-        booking = Booking(
-            **{**self.booking_data,
-               "check_out_date": date(2025, 7, 31)
-               }
-        )
+        booking = Booking(**{**self.booking_data, "check_out_date": date(2025, 7, 31)})
         with self.assertRaises(ValidationError):
             booking.full_clean()
 

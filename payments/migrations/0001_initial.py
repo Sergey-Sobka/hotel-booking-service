@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -71,7 +70,9 @@ class Migration(migrations.Migration):
                 (
                     "session_id",
                     models.CharField(
-                        max_length=255, unique=True, verbose_name="Stripe Session ID"
+                        max_length=255,
+                        unique=True,
+                        verbose_name="Stripe Session ID",
                     ),
                 ),
                 (

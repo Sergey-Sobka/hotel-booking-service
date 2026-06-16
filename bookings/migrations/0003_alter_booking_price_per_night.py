@@ -5,15 +5,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('bookings', '0002_booking_booking_dates_idx_booking_booking_status_idx_and_more'),
+        (
+            "bookings",
+            "0002_booking_booking_dates_idx_booking_booking_status_idx_and_more",
+        ),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='booking',
-            name='price_per_night',
-            field=models.DecimalField(decimal_places=2, max_digits=10, validators=[django.core.validators.MinValueValidator(0)]),
+            model_name="booking",
+            name="price_per_night",
+            field=models.DecimalField(
+                decimal_places=2,
+                max_digits=10,
+                validators=[django.core.validators.MinValueValidator(0)],
+            ),
         ),
     ]

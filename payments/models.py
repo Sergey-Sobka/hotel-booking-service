@@ -4,7 +4,6 @@ from bookings.models import Booking
 
 
 class Payment(models.Model):
-
     class StatusChoices(models.TextChoices):
         PENDING = "PENDING", "Pending"
         PAID = "PAID", "Paid"
@@ -46,9 +45,7 @@ class Payment(models.Model):
         max_length=255, unique=True, verbose_name="Stripe Session ID"
     )
 
-    created_at = models.DateTimeField(
-        auto_now_add=True, verbose_name="Created"
-    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated")
 
     class Meta:
