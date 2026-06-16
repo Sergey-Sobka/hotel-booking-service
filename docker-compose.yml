@@ -48,6 +48,28 @@ services:
       timeout: 5s
       retries: 10
 
+  celery:
+    build: .
+    command: celery -A config worker --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - db
+
+  celery-beat:
+    build: .
+    command: celery -A config beat --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - db
+
 volumes:
   postgres_data:
   redis_data:
