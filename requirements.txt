@@ -7,3 +7,4 @@ djangorestframework-simplejwt
 drf-spectacular
 python-dotenv
 stripe
+django-filter
