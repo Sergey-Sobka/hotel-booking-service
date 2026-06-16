@@ -8,3 +8,5 @@ drf-spectacular
 python-dotenv
 stripe
 django-filter
+
+celery
