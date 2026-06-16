@@ -24,6 +24,7 @@ coverage.xml
 htmlcov/
 .pytest_cache/
 .ruff_cache/
+celerybeat-schedule
 
 # Environment and IDE
 .env
