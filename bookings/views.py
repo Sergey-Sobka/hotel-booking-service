@@ -10,9 +10,13 @@ from django.db import transaction
 from rest_framework import serializers
 
 from .models import Booking, BookingStatus
-from .serializers import BookingSerializer, BookingCreateSerializer
+from .serializers import (
+    BookingCheckOutSerializer,
+    BookingCreateSerializer,
+    BookingSerializer,
+)
 from .filters import BookingFilter
-from .validators import get_check_in_error
+from .validators import get_check_in_error, get_check_out_error
 from payments.services import create_booking_payment_session
 from payments.models import Payment
 
@@ -59,6 +63,50 @@ class BookingCheckInView(APIView):
             BookingSerializer(booking).data,
             status=status.HTTP_200_OK,
         )
+
+
+class BookingCheckOutView(APIView):
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        summary="Check out booking",
+        description=(
+            "Completes an active booking and exposes overstay data for payment."
+        ),
+        request=None,
+        responses={
+            200: BookingCheckOutSerializer,
+            400: OpenApiResponse(description="Booking is not eligible."),
+        },
+    )
+    def post(self, request, pk):
+        booking = get_object_or_404(Booking, pk=pk)
+        check_out_error = get_check_out_error(booking)
+
+        if check_out_error:
+            return Response(
+                {"detail": check_out_error},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        actual_check_out_date = timezone.localdate()
+        overstay_days = max(
+            (actual_check_out_date - booking.check_out_date).days,
+            0,
+        )
+        booking.status = BookingStatus.COMPLETED
+        booking.actual_check_out_date = actual_check_out_date
+        booking.save(update_fields=["status", "actual_check_out_date"])
+
+        response_serializer = BookingCheckOutSerializer(
+            {
+                "id": booking.id,
+                "status": booking.status,
+                "actual_check_out_date": booking.actual_check_out_date,
+                "overstay_days": overstay_days,
+            }
+        )
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
 @extend_schema_view(
