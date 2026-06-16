@@ -86,8 +86,12 @@ class BookingCheckInView(APIView):
     ),
     request=BookingCreateSerializer,
     responses={
-        201: OpenApiResponse(description="Booking created, payment session initiated"),
-        400: OpenApiResponse(description="Validation errors or room unavailable"),
+        201: OpenApiResponse(
+            description="Booking created, payment session initiated"
+        ),
+        400: OpenApiResponse(
+            description="Validation errors or room unavailable"
+        ),
     },
 )
 class BookingCreateView(generics.CreateAPIView):
