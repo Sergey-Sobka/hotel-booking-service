@@ -1,4 +1,4 @@
-from datetime import date, timedelta, datetime, timezone
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
