@@ -42,3 +42,18 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = "__all__"
         read_only_fields = ("user",)
+
+
+class BookingCheckOutSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+    actual_check_out_date = serializers.DateField()
+    overstay_days = serializers.IntegerField()
+    overstay_payment_id = serializers.IntegerField(
+        allow_null=True,
+        required=False,
+    )
+    overstay_payment_url = serializers.URLField(
+        allow_null=True,
+        required=False,
+    )

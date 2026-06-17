@@ -9,3 +9,9 @@ def get_check_in_error(booking, today):
     if today >= booking.check_out_date:
         return "Booking cannot be checked in after check-out date."
     return None
+
+
+def get_check_out_error(booking):
+    if booking.status != BookingStatus.ACTIVE:
+        return "Only active bookings can be checked out."
+    return None

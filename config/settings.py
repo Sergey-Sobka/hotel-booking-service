@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "rooms",
     "bookings",
     "payments",
+    "notifications",
 ]
 
 MIDDLEWARE = [
@@ -157,3 +158,10 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=0, minute=5),
     },
 }
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+TELEGRAM_API_URL = os.getenv(
+    "TELEGRAM_API_URL",
+    "https://api.telegram.org",
+)

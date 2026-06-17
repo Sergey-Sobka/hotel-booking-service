@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from django.urls import reverse
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import ANY, patch, MagicMock
 from decimal import Decimal
 
 from rooms.models import Room
@@ -324,6 +324,104 @@ class BookingCheckInViewTest(APITestCase):
         res = self.client.post(self.url)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class BookingCheckOutViewTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="guest2@a.com",
+            password="pass",
+        )
+        self.staff = User.objects.create_user(
+            email="staff2@a.com", password="pass", is_staff=True
+        )
+        self.room = Room.objects.create(
+            number="202",
+            room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00",
+            capacity=2,
+        )
+        today = django_timezone.localdate()
+        self.booking = Booking.objects.create(
+            user=self.user,
+            room=self.room,
+            check_in_date=today - timedelta(days=1),
+            check_out_date=today,
+            price_per_night="100.00",
+            status=BookingStatus.ACTIVE,
+        )
+        self.url = reverse(
+            "bookings:booking-check-out",
+            kwargs={"pk": self.booking.pk},
+        )
+
+    @patch("bookings.views.create_booking_payment_session")
+    def test_staff_can_check_out_active_booking(self, mock_payment):
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.COMPLETED)
+        self.assertEqual(
+            self.booking.actual_check_out_date,
+            django_timezone.localdate(),
+        )
+        self.assertEqual(res.data["overstay_days"], 0)
+        self.assertIsNone(res.data["overstay_payment_id"])
+        self.assertIsNone(res.data["overstay_payment_url"])
+        mock_payment.assert_not_called()
+
+    @patch("bookings.views.create_booking_payment_session")
+    def test_check_out_creates_overstay_payment(self, mock_payment):
+        overstay_payment = MagicMock(
+            id=10,
+            session_url="https://stripe.test/checkout/session",
+        )
+        mock_payment.return_value = overstay_payment
+        yesterday = django_timezone.localdate() - timedelta(days=1)
+        self.booking.check_in_date = yesterday - timedelta(days=1)
+        self.booking.check_out_date = yesterday
+        self.booking.save(update_fields=["check_in_date", "check_out_date"])
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["overstay_days"], 1)
+        self.assertEqual(res.data["overstay_payment_id"], 10)
+        self.assertEqual(
+            res.data["overstay_payment_url"],
+            "https://stripe.test/checkout/session",
+        )
+        mock_payment.assert_called_once_with(
+            booking=self.booking,
+            payment_type="OVERSTAY_FEE",
+            request=ANY,
+            extra_days=1,
+        )
+
+    def test_cannot_check_out_not_active_booking(self):
+        self.booking.status = BookingStatus.BOOKED
+        self.booking.save(update_fields=["status"])
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_non_staff_cannot_check_out_booking(self):
+        self.client.force_authenticate(user=self.user)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_user_cannot_check_out_booking(self):
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class BookingTasksCeleryTest(TestCase):
