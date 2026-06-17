@@ -14,6 +14,12 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       REDIS_URL: redis://redis:6379/0
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLIC_KEY: ${STRIPE_PUBLIC_KEY}
+      STRIPE_CURRENCY: ${STRIPE_CURRENCY:-usd}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      TELEGRAM_API_URL: ${TELEGRAM_API_URL:-https://api.telegram.org}
     volumes:
       - .:/app
     ports:
@@ -52,23 +58,73 @@ services:
     build: .
     command: celery -A config worker --loglevel=info
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-development-key}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      POSTGRES_DB: ${POSTGRES_DB:-hotel_booking}
+      POSTGRES_USER: ${POSTGRES_USER:-hotel_booking}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hotel_booking}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      TELEGRAM_API_URL: ${TELEGRAM_API_URL:-https://api.telegram.org}
     volumes:
       - .:/app
     depends_on:
-      - redis
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   celery-beat:
     build: .
     command: celery -A config beat --loglevel=info
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-development-key}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      POSTGRES_DB: ${POSTGRES_DB:-hotel_booking}
+      POSTGRES_USER: ${POSTGRES_USER:-hotel_booking}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hotel_booking}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      TELEGRAM_API_URL: ${TELEGRAM_API_URL:-https://api.telegram.org}
     volumes:
       - .:/app
     depends_on:
-      - redis
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  bot:
+    build: .
+    command: python manage.py run_telegram_bot --interval 60
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-development-key}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      POSTGRES_DB: ${POSTGRES_DB:-hotel_booking}
+      POSTGRES_USER: ${POSTGRES_USER:-hotel_booking}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hotel_booking}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      TELEGRAM_API_URL: ${TELEGRAM_API_URL:-https://api.telegram.org}
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:
