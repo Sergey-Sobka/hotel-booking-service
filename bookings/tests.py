@@ -1,9 +1,8 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
-from django.test.utils import freeze_time
 from django.utils import timezone as django_timezone
 from rest_framework.test import APITestCase
 from rest_framework import status
@@ -322,6 +321,17 @@ class BookingCheckInViewTest(APITestCase):
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_cannot_check_in_before_check_in_date(self):
+        tomorrow = django_timezone.localdate() + timedelta(days=1)
+        self.booking.check_in_date = tomorrow
+        self.booking.check_out_date = tomorrow + timedelta(days=2)
+        self.booking.save(update_fields=["check_in_date", "check_out_date"])
+        self.client.force_authenticate(user=self.staff)
+
+        res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_cannot_check_in_after_check_out_date(self):
         yesterday = django_timezone.localdate() - timedelta(days=1)
         self.booking.check_in_date = yesterday - timedelta(days=2)
@@ -472,9 +482,7 @@ class BookingTasksCeleryTest(TestCase):
         self.assertEqual(self.future_booking.status, BookingStatus.BOOKED)
         self.assertIn("Successfully marked 1 bookings as NO_SHOW", result)
 
-        mock_notification_delay.assert_called_once_with(
-            self.overdue_booking.id
-        )
+        mock_notification_delay.assert_called_once_with(self.overdue_booking.id)
 
 
 class BookingCancelViewTest(APITestCase):
@@ -551,21 +559,27 @@ class BookingCancelViewTest(APITestCase):
         self.booking.refresh_from_db()
         self.assertFalse(self.booking.is_late_cancellation)
 
-    @freeze_time("2025-08-01 10:00:00")
     def test_late_cancellation_flagged(self):
-        self.booking.check_in_date = date(2025, 8, 1)
-        self.booking.save()
-        with patch(
+        fake_now = datetime.combine(
+            self.booking.check_in_date, datetime.min.time()
+        ).replace(tzinfo=timezone.utc) - timedelta(hours=12)
+        with patch("bookings.views.datetime") as mock_datetime, patch(
             "bookings.views.create_booking_payment_session"
         ) as mock_payment:
             mock_payment.return_value = MagicMock(
                 session_url="https://stripe.com/cancel-fee"
             )
+            mock_datetime.now.return_value = fake_now
+            mock_datetime.combine = datetime.combine
+            mock_datetime.min = datetime.min
+
             self.client.force_authenticate(user=self.user)
             res = self.client.post(self.url)
+
         self.assertTrue(res.data["is_late_cancellation"])
         self.assertEqual(
             res.data["payment_url"], "https://stripe.com/cancel-fee"
         )
         self.booking.refresh_from_db()
         self.assertTrue(self.booking.is_late_cancellation)
+        self.assertEqual(self.booking.status, BookingStatus.CANCELLED)
