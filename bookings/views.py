@@ -245,7 +245,7 @@ class BookingNoShowView(APIView):
         ),
         request=None,
         responses={
-            200: OpenApiResponse(description="Noshow applied,payment session initiated"),
+            200: OpenApiResponse(description="Noshow,payment session initiated"),
             400: OpenApiResponse(description="Booking is not in BOOKED status."),
         },
     )
