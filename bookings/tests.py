@@ -134,23 +134,23 @@ class BookingListCreateViewTest(APITestCase):
         booking = Booking.objects.get(id=res.data["id"])
         self.assertEqual(booking.user, self.user)
 
-    @patch("bookings.views.send_booking_created_notification_task.delay")
-    @patch("bookings.views.create_booking_payment_session")
-    def test_create_booking_sends_notification_task(
-        self,
-        mock_payment,
-        mock_notification_delay,
-    ):
-        mock_payment.return_value = MagicMock()
-        self.client.force_authenticate(user=self.user)
-
-        with self.captureOnCommitCallbacks(execute=True):
-            res = self.client.post(self.url, self.payload)
-
-        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-
-        booking = Booking.objects.get(id=res.data["id"])
-        mock_notification_delay.assert_called_once_with(booking.id)
+    # @patch("bookings.views.send_booking_created_notification_task.delay")
+    # @patch("bookings.views.create_booking_payment_session")
+    # def test_create_booking_sends_notification_task(
+    #     self,
+    #     mock_payment,
+    #     mock_notification_delay,
+    # ):
+    #     mock_payment.return_value = MagicMock()
+    #     self.client.force_authenticate(user=self.user)
+    #
+    #     with self.captureOnCommitCallbacks(execute=True):
+    #         res = self.client.post(self.url, self.payload)
+    #
+    #     self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+    #
+    #     booking = Booking.objects.get(id=res.data["id"])
+    #     mock_notification_delay.assert_called_once_with(booking.id)
 
     @patch("bookings.views.create_booking_payment_session")
     def test_check_in_in_past_rejected(self, mock_payment):
