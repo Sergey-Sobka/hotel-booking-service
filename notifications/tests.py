@@ -64,4 +64,3 @@ class TelegramNotificationServiceTests(SimpleTestCase):
         result = send_telegram_message("Test message")
 
         self.assertFalse(result)
-
