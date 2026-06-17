@@ -583,3 +583,112 @@ class BookingCancelViewTest(APITestCase):
         self.booking.refresh_from_db()
         self.assertTrue(self.booking.is_late_cancellation)
         self.assertEqual(self.booking.status, BookingStatus.CANCELLED)
+
+
+class BookingNoShowViewTest(APITestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            email="staff@a.com", password="pass", is_staff=True
+        )
+        self.user = User.objects.create_user(
+            email="a@a.com", password="pass"
+        )
+        self.room = Room.objects.create(
+            number="101",
+            room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00",
+            capacity=2,
+        )
+        self.booking = Booking.objects.create(
+            user=self.user,
+            room=self.room,
+            check_in_date=date.today(),
+            check_out_date=date.today() + timedelta(days=3),
+            price_per_night="100.00",
+            status=BookingStatus.BOOKED,
+        )
+        self.url = reverse(
+            "bookings:booking-no-show", kwargs={"pk": self.booking.pk}
+        )
+
+    @patch("bookings.views.create_booking_payment_session")
+    def test_staff_can_mark_no_show(self, mock_payment):
+        mock_payment.return_value = MagicMock(session_url="https://stripe.com/pay")
+        self.client.force_authenticate(user=self.staff)
+        res = self.client.post(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.NO_SHOW)
+
+    def test_non_staff_cannot_mark_no_show(self):
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post(self.url)
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("bookings.views.create_booking_payment_session")
+    def test_non_booked_status_rejected(self, mock_payment):
+        self.booking.status = BookingStatus.ACTIVE
+        self.booking.save()
+        self.client.force_authenticate(user=self.staff)
+        res = self.client.post(self.url)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class BookingOverstayViewTest(APITestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            email="staff@a.com", password="pass", is_staff=True
+        )
+        self.user = User.objects.create_user(
+            email="a@a.com", password="pass"
+        )
+        self.room = Room.objects.create(
+            number="101",
+            room_type=Room.RoomType.SINGLE,
+            price_per_night="100.00",
+            capacity=2,
+        )
+        self.booking = Booking.objects.create(
+            user=self.user,
+            room=self.room,
+            check_in_date=date.today(),
+            check_out_date=date.today() + timedelta(days=3),
+            price_per_night="100.00",
+            status=BookingStatus.ACTIVE,
+        )
+        self.url = reverse(
+            "bookings:booking-overstay", kwargs={"pk": self.booking.pk}
+        )
+
+    @patch("bookings.views.create_booking_payment_session")
+    def test_staff_can_trigger_overstay(self, mock_payment):
+        mock_payment.return_value = MagicMock(session_url="https://stripe.com/pay")
+        self.client.force_authenticate(user=self.staff)
+        res = self.client.post(self.url, {"extra_days": 2})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn("payment_url", res.data)
+
+    def test_non_staff_cannot_trigger_overstay(self):
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post(self.url, {"extra_days": 2})
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("bookings.views.create_booking_payment_session")
+    def test_non_active_booking_rejected(self, mock_payment):
+        self.booking.status = BookingStatus.BOOKED
+        self.booking.save()
+        self.client.force_authenticate(user=self.staff)
+        res = self.client.post(self.url, {"extra_days": 2})
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("bookings.views.create_booking_payment_session")
+    def test_invalid_extra_days_rejected(self, mock_payment):
+        self.client.force_authenticate(user=self.staff)
+        res = self.client.post(self.url, {"extra_days": 0})
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("bookings.views.create_booking_payment_session")
+    def test_non_integer_extra_days_rejected(self, mock_payment):
+        self.client.force_authenticate(user=self.staff)
+        res = self.client.post(self.url, {"extra_days": "abc"})
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
