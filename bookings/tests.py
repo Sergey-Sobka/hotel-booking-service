@@ -132,6 +132,24 @@ class BookingListCreateViewTest(APITestCase):
             booking.price_per_night, Decimal(str(self.room.price_per_night))
         )
 
+    @patch("bookings.views.send_booking_created_notification_task.delay")
+    @patch("bookings.views.create_booking_payment_session")
+    def test_create_booking_sends_notification_task(
+        self,
+        mock_payment,
+        mock_notification_delay,
+    ):
+        mock_payment.return_value = MagicMock()
+        self.client.force_authenticate(user=self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            res = self.client.post(self.url, self.payload)
+
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+
+        booking = Booking.objects.get(id=res.data["id"])
+        mock_notification_delay.assert_called_once_with(booking.id)
+
     @patch("bookings.views.create_booking_payment_session")
     def test_check_in_in_past_rejected(self, mock_payment):
         self.client.force_authenticate(user=self.user)
@@ -451,13 +469,18 @@ class BookingTasksCeleryTest(TestCase):
             price_per_night=100.00,
         )
 
-    def test_check_and_mark_no_shows(self):
+    @patch("bookings.tasks.send_booking_no_show_notification_task.delay")
+    def test_check_and_mark_no_shows(self, mock_notification_delay):
         result = check_and_mark_no_shows()
+
         self.overdue_booking.refresh_from_db()
         self.future_booking.refresh_from_db()
+
         self.assertEqual(self.overdue_booking.status, BookingStatus.NO_SHOW)
         self.assertEqual(self.future_booking.status, BookingStatus.BOOKED)
         self.assertIn("Successfully marked 1 bookings as NO_SHOW", result)
+
+        mock_notification_delay.assert_called_once_with(self.overdue_booking.id)
 
 
 class BookingCancelViewTest(APITestCase):
@@ -495,6 +518,22 @@ class BookingCancelViewTest(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.booking.refresh_from_db()
         self.assertEqual(self.booking.status, BookingStatus.CANCELLED)
+
+    @patch("bookings.views.send_booking_cancelled_notification_task.delay")
+    def test_cancel_booking_sends_notification_task(
+        self,
+        mock_notification_delay,
+    ):
+        self.client.force_authenticate(user=self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            res = self.client.post(self.url)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, BookingStatus.CANCELLED)
+        mock_notification_delay.assert_called_once_with(self.booking.id)
 
     def test_staff_can_cancel(self):
         self.client.force_authenticate(user=self.staff)
