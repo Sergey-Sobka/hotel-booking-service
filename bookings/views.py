@@ -31,6 +31,17 @@ from notifications.tasks import (
 )
 
 
+@extend_schema(
+    summary="Retrieve a booking",
+    description=(
+        "Returns booking details. "
+        "Staff can retrieve any booking; guests can only retrieve their own."
+    ),
+    responses={
+        200: BookingSerializer,
+        404: OpenApiResponse(description="Booking not found."),
+    },
+)
 class BookingDetailView(generics.RetrieveAPIView):
     serializer_class = BookingSerializer
     permission_classes = [IsAuthenticated]
@@ -135,6 +146,15 @@ class BookingCheckOutView(APIView):
 
 
 @extend_schema_view(
+    get=extend_schema(
+        summary="List bookings",
+        description=(
+            "Returns a list of bookings"
+            "Staff see all bookings; guests see only their own"
+            "Supports filtering by status, room, room type, and dates"
+        ),
+        responses={200: BookingSerializer(many=True)},
+    ),
     post=extend_schema(
         summary="Create a booking",
         description=(
@@ -153,7 +173,7 @@ class BookingCheckOutView(APIView):
                 description="Validation errors or room unavailable"
             ),
         },
-    )
+    ),
 )
 class BookingListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -217,7 +237,18 @@ class BookingListCreateView(generics.ListCreateAPIView):
 class BookingNoShowView(APIView):
     permission_classes = [IsAdminUser]
 
-    @extend_schema(summary="Mark booking as no-show and trigger fee")
+    @extend_schema(
+        summary="Mark booking as no-show",
+        description=(
+            "Marks a BOOKED reservation as NO_SHOW and initiates a no-show fee payment. "
+            "Admin only."
+        ),
+        request=None,
+        responses={
+            200: OpenApiResponse(description="No-show applied, payment session initiated."),
+            400: OpenApiResponse(description="Booking is not in BOOKED status."),
+        },
+    )
     @transaction.atomic
     def post(self, request, pk):
         booking = get_object_or_404(Booking, pk=pk)
@@ -244,7 +275,18 @@ class BookingNoShowView(APIView):
 class BookingOverstayView(APIView):
     permission_classes = [IsAdminUser]
 
-    @extend_schema(summary="Trigger overstay fee")
+    @extend_schema(
+        summary="Trigger overstay fee",
+        description=(
+            "Initiates an overstay fee payment for an ACTIVE booking"
+            "Requires 'extra_days' in the request body. Admin only"
+        ),
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Overstay fee initiated"),
+            400: OpenApiResponse(description="Invalid status or extra_days value"),
+        },
+    )
     @transaction.atomic
     def post(self, request, pk):
         booking = get_object_or_404(Booking, pk=pk)
@@ -283,10 +325,10 @@ class BookingCancelView(APIView):
     @extend_schema(
         summary="Cancel a booking",
         description=(
-            "Cancels a BOOKED reservation. "
-            "Only the booking owner or staff can cancel. "
-            "Cancellations within 24 hours of check-in are marked "
-            "as late and will incur a cancellation fee (handled in HBS-23)."
+            "Cancels a BOOKED reservation"
+            "Only the booking owner or staff can cancel"
+            "Cancellations within 24 hours of check-in are marked"
+            "as late and will incur a cancellation fee"
         ),
         responses={
             200: OpenApiResponse(
