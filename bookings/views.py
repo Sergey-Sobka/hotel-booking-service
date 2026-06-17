@@ -240,12 +240,12 @@ class BookingNoShowView(APIView):
     @extend_schema(
         summary="Mark booking as no-show",
         description=(
-            "Marks a BOOKED reservation as NO_SHOW and initiates a no-show fee payment. "
+            "Marks a BOOKED reservation as NO_SHOW and initiates a no-show fee payment"
             "Admin only."
         ),
         request=None,
         responses={
-            200: OpenApiResponse(description="No-show applied, payment session initiated."),
+            200: OpenApiResponse(description="Noshow applied,payment session initiated"),
             400: OpenApiResponse(description="Booking is not in BOOKED status."),
         },
     )
