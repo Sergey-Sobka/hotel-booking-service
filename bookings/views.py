@@ -102,35 +102,6 @@ class BookingListCreateView(generics.ListCreateAPIView):
             "room"
         )
 
-    # @transaction.atomic
-    # def perform_create(self, serializer):
-    #     room = serializer.validated_data["room"]
-    #     check_in = serializer.validated_data["check_in_date"]
-    #     check_out = serializer.validated_data["check_out_date"]
-    #
-    #     overlapping = (
-    #         Booking.objects.select_for_update()
-    #         .filter(
-    #             room=room,
-    #             status__in=[BookingStatus.BOOKED, BookingStatus.ACTIVE],
-    #             check_in_date__lt=check_out,
-    #             check_out_date__gt=check_in,
-    #         )
-    #         .exists()
-    #     )
-    #
-    #     if overlapping:
-    #         raise serializers.ValidationError(
-    #             "This room is already booked for the selected dates."
-    #         )
-    #
-    #     booking = serializer.save()
-    #
-    #     create_booking_payment_session(
-    #         booking=booking,
-    #         payment_type=Payment.TypeChoices.BOOKING,
-    #         request=self.request,
-    #     )
     @transaction.atomic
     def create(self, request, *args, **kwargs):
 
