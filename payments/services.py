@@ -3,6 +3,7 @@ import stripe
 from django.conf import settings
 from django.db import transaction
 from django.urls import reverse
+from notifications.tasks import send_payment_success_notification_task
 
 from bookings.models import BookingStatus, Booking
 from .models import Payment
@@ -91,4 +92,9 @@ def complete_payment_process(payment: Payment) -> Booking:
         }
         booking.status = status_map.get(payment.type, booking.status)
         booking.save()
+
+        transaction.on_commit(
+            lambda: send_payment_success_notification_task.delay(payment.id)
+        )
+
         return booking

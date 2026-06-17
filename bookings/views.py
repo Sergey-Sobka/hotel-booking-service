@@ -21,6 +21,11 @@ from .validators import get_check_in_error, get_check_out_error
 from payments.services import create_booking_payment_session
 from payments.models import Payment
 
+from notifications.tasks import (
+    send_booking_created_notification_task,
+    send_booking_cancelled_notification_task,
+)
+
 
 class BookingDetailView(generics.RetrieveAPIView):
     serializer_class = BookingSerializer
@@ -187,6 +192,10 @@ class BookingListCreateView(generics.ListCreateAPIView):
             request=self.request,
         )
 
+        transaction.on_commit(
+            lambda: send_booking_created_notification_task.delay(booking.id)
+        )
+
 
 class BookingCancelView(APIView):
     permission_classes = [IsAuthenticated]
@@ -227,6 +236,10 @@ class BookingCancelView(APIView):
         booking.status = BookingStatus.CANCELLED
         booking.is_late_cancellation = is_late
         booking.save(update_fields=["status", "is_late_cancellation"])
+
+        transaction.on_commit(
+            lambda: send_booking_cancelled_notification_task.delay(booking.id)
+        )
 
         return Response(
             {
