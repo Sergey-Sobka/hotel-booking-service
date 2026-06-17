@@ -102,8 +102,41 @@ class BookingListCreateView(generics.ListCreateAPIView):
             "room"
         )
 
+    # @transaction.atomic
+    # def perform_create(self, serializer):
+    #     room = serializer.validated_data["room"]
+    #     check_in = serializer.validated_data["check_in_date"]
+    #     check_out = serializer.validated_data["check_out_date"]
+    #
+    #     overlapping = (
+    #         Booking.objects.select_for_update()
+    #         .filter(
+    #             room=room,
+    #             status__in=[BookingStatus.BOOKED, BookingStatus.ACTIVE],
+    #             check_in_date__lt=check_out,
+    #             check_out_date__gt=check_in,
+    #         )
+    #         .exists()
+    #     )
+    #
+    #     if overlapping:
+    #         raise serializers.ValidationError(
+    #             "This room is already booked for the selected dates."
+    #         )
+    #
+    #     booking = serializer.save()
+    #
+    #     create_booking_payment_session(
+    #         booking=booking,
+    #         payment_type=Payment.TypeChoices.BOOKING,
+    #         request=self.request,
+    #     )
     @transaction.atomic
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         room = serializer.validated_data["room"]
         check_in = serializer.validated_data["check_in_date"]
         check_out = serializer.validated_data["check_out_date"]
@@ -118,23 +151,27 @@ class BookingListCreateView(generics.ListCreateAPIView):
             )
             .exists()
         )
-
         if overlapping:
             raise serializers.ValidationError(
-                "This room is already booked for the selected dates."
+                {
+                    "detail": "This room is already booked for the selected dates."
+                }
             )
-
         booking = serializer.save()
-
-        create_booking_payment_session(
+        payment = create_booking_payment_session(
             booking=booking,
             payment_type=Payment.TypeChoices.BOOKING,
             request=self.request,
         )
 
+        response_data = serializer.data
+        response_data["payment_url"] = payment.session_url
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
+
 
 class BookingNoShowView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
 
     @extend_schema(summary="Mark booking as no-show and trigger fee")
     @transaction.atomic
@@ -146,18 +183,22 @@ class BookingNoShowView(APIView):
                 f"Cannot mark a booking with status '{booking.status}' as no-show."
             )
 
-        create_booking_payment_session(
+        payment = create_booking_payment_session(
             booking, Payment.TypeChoices.NO_SHOW_FEE, request
         )
         booking.status = BookingStatus.NO_SHOW
         booking.save(update_fields=["status"])
         return Response(
-            {"detail": "No-show status applied and fee session created."}
+            {
+                "detail": "No-show status applied.",
+                "payment_url": payment.session_url,
+            },
+            status=status.HTTP_200_OK,
         )
 
 
 class BookingOverstayView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
 
     @extend_schema(summary="Trigger overstay fee")
     @transaction.atomic
@@ -167,15 +208,28 @@ class BookingOverstayView(APIView):
             raise ValidationError(
                 "Only ACTIVE bookings can have overstay charges."
             )
-        extra_days = int(request.data.get("extra_days", 1))
-        create_booking_payment_session(
+        try:
+            extra_days = int(request.data.get("extra_days", 1))
+            if extra_days < 1:
+                raise ValueError
+        except (ValueError, TypeError):
+            raise ValidationError(
+                {
+                    "extra_days": "Must be an integer greater than or equal to 1."
+                }
+            )
+        payment = create_booking_payment_session(
             booking,
             Payment.TypeChoices.OVERSTAY_FEE,
             request,
             extra_days=extra_days,
         )
         return Response(
-            {"detail": f"Overstay fee for {extra_days} days initiated."}
+            {
+                "detail": f"Overstay fee for {extra_days} days initiated.",
+                "payment_url": payment.session_url,
+            },
+            status=status.HTTP_200_OK,
         )
 
 
@@ -219,20 +273,22 @@ class BookingCancelView(APIView):
         ).replace(tzinfo=timezone.utc)
         now = datetime.now(tz=timezone.utc)
         is_late = (check_in_datetime - now) < timedelta(hours=24)
+        payment_url = None
         if is_late:
-            create_booking_payment_session(
+            payment = create_booking_payment_session(
                 booking=booking,
                 payment_type=Payment.TypeChoices.CANCELLATION_FEE,
                 request=request,
             )
+            payment_url = payment.session_url
         booking.status = BookingStatus.CANCELLED
         booking.is_late_cancellation = is_late
         booking.save(update_fields=["status", "is_late_cancellation"])
+        response_data = {
+            "detail": "Booking cancelled.",
+            "is_late_cancellation": is_late,
+        }
+        if payment_url:
+            response_data["payment_url"] = payment_url
 
-        return Response(
-            {
-                "detail": "Booking cancelled.",
-                "is_late_cancellation": is_late,
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response(response_data, status=status.HTTP_200_OK)
