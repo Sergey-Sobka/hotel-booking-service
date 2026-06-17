@@ -1,3 +1,13 @@
 Django==5.2.15
 psycopg[binary]==3.2.9
 redis==6.2.0
+coverage==7.6.10
+djangorestframework
+djangorestframework-simplejwt
+drf-spectacular
+python-dotenv
+stripe
+django-filter
+
+celery
+requests

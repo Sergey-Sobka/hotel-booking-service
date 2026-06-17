@@ -14,6 +14,7 @@ venv/
 # Django
 *.log
 *.sqlite3
+db.sqlite3.backup
 media/
 staticfiles/
 
@@ -23,6 +24,7 @@ coverage.xml
 htmlcov/
 .pytest_cache/
 .ruff_cache/
+celerybeat-schedule
 
 # Environment and IDE
 .env
