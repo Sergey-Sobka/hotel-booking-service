@@ -137,6 +137,7 @@ class BookingCheckOutView(APIView):
             "Automatically attaches the user and copies the room price"
             "Validates dates and prevents overlapping reservations"
             "Returns a Stripe payment session URL"
+            "NOTE: The generated Stripe payment session is valid for 24 hours."
         ),
         request=BookingCreateSerializer,
         responses={
