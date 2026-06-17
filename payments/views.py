@@ -1,7 +1,11 @@
 import stripe
 from django.conf import settings
-from django.db import transaction
-from django.http import HttpResponseRedirect
+from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import (
+    extend_schema,
+    OpenApiParameter,
+    OpenApiResponse,
+)
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -10,53 +14,78 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Payment
 from .serializers import PaymentSerializer
 
-from bookings.models import BookingStatus
+from .services import complete_payment_process
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 class PaymentSuccessView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Confirm payment success",
+        description="Verify the Stripe session status "
+        "and finalize the booking payment process."
+        " If the payment is confirmed in Stripe,"
+        " the booking status is updated accordingly.",
+        parameters=[
+            OpenApiParameter(
+                name="session_id",
+                description="The unique identifier of the Stripe Checkout session.",
+                required=True,
+                type=str,
+                location=OpenApiParameter.QUERY,
+            )
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="Payment successfully verified and booking updated."
+            ),
+            400: OpenApiResponse(
+                description="Invalid session or payment not completed."
+            ),
+            404: OpenApiResponse(description="Payment record not found."),
+        },
+    )
     def get(self, request):
         session_id = request.query_params.get("session_id")
 
         if not session_id:
             return Response(
-                {"error": "Missing session_id param."},
+                {"error": "Missing session_id."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        payment = get_object_or_404(
+            Payment,
+            session_id=session_id,
+            booking__user=request.user,
+        )
+
         try:
-            payment = Payment.objects.get(session_id=session_id)
-            stripe_session = stripe.checkout.Session.retrieve(session_id)
+            if payment.status != Payment.StatusChoices.PAID:
+                stripe_session = stripe.checkout.Session.retrieve(session_id)
 
-            if stripe_session.payment_status == "paid":
-                if payment.status == Payment.StatusChoices.PAID:
-                    return HttpResponseRedirect(settings.FRONTEND_URL)
-                with transaction.atomic():
-                    payment.status = Payment.StatusChoices.PAID
-                    payment.save()
-                    booking = payment.booking
+                if stripe_session.payment_status != "paid":
+                    return Response(
+                        {"error": "Not paid yet."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
-                    if payment.type == Payment.TypeChoices.BOOKING:
-                        booking.status = BookingStatus.BOOKED
-                    elif payment.type == Payment.TypeChoices.CANCELLATION_FEE:
-                        booking.status = BookingStatus.CANCELLED
-                    elif payment.type == Payment.TypeChoices.OVERSTAY_FEE:
-                        booking.status = BookingStatus.COMPLETED
-                    booking.save()
+                complete_payment_process(payment)
 
-                return HttpResponseRedirect("http://127.0.0.1:8000/")
-
-            else:
-                return Response(
-                    {"error": "Stripe session is not paid yet."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        except Payment.DoesNotExist:
             return Response(
-                {"error": "Payment record not found."},
-                status=status.HTTP_404_NOT_FOUND,
+                {
+                    "message": "Payment successful",
+                    "booking": {
+                        "id": payment.booking.id,
+                        "status": payment.booking.status,
+                        "check_in": payment.booking.check_in_date,
+                    },
+                },
+                status=status.HTTP_200_OK,
             )
+
         except stripe.error.StripeError as e:
             return Response(
                 {"error": f"Stripe error: {str(e)}"},
@@ -65,14 +94,35 @@ class PaymentSuccessView(APIView):
 
 
 class PaymentCancelView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Handle cancelled payment",
+        description="Endpoint triggered when the user"
+        " cancels the payment process in the Stripe checkout flow.",
+        responses={
+            200: OpenApiResponse(description="Cancellation message received.")
+        },
+    )
     def get(self, request):
-        return HttpResponseRedirect("http://127.0.0.1:8000/")
+        return Response(
+            {"message": "Payment process was cancelled by the user."},
+            status=status.HTTP_200_OK,
+        )
 
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="List payments",
+        description="Retrieve a list of payments "
+        "associated with the authenticated user.",
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         user = self.request.user
