@@ -26,7 +26,9 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="booking",
             constraint=models.CheckConstraint(
-                condition=models.Q(("check_out_date__gt", models.F("check_in_date"))),
+                condition=models.Q(
+                    ("check_out_date__gt", models.F("check_in_date"))
+                ),
                 name="check_out_after_check_in",
             ),
         ),
